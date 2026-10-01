@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101b35">
+  <meta name="description" content="مدرسه‌یار؛ سامانه مدیریت مدرسه، کلاس‌ها، حضور و غیاب و ارتباط با اولیا">
+  <title>مدرسه‌یار | سامانه مدیریت مدرسه</title>
+  <link rel="stylesheet" href="/styles.css?v=20261001-7">
+  <script defer src="/icons.js?v=20261001-7"></script>
+  <script defer src="/app.js?v=20261001-7"></script>
+</head>
+<body>
+  <div class="login-screen" id="auth-screen">
+    <div class="login-decoration login-decoration-one"></div>
+    <div class="login-decoration login-decoration-two"></div>
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="login-brand">
+        <div class="brand-mark brand-mark-large"><span class="brand-cap"></span><span class="brand-book"></span></div>
+        <div><strong>مدرسه‌یار</strong><small>مدیریت هوشمند مدرسه</small></div>
+      </div>
+      <div class="login-welcome">
+        <span class="eyebrow">سامانه یکپارچه مدیریت مدرسه</span>
+        <h1 id="login-title">خوش آمدید 👋</h1>
+        <p>برای ادامه، وارد حساب کاربری خود شوید.</p>
+      </div>
+      <form id="login-form" class="login-form" autocomplete="on">
+        <label class="field-label" for="login-username">نام کاربری</label>
+        <div class="input-wrap"><span class="field-icon" data-icon="user"></span><input id="login-username" name="username" required autocomplete="username" placeholder="نام کاربری خود را وارد کنید"></div>
+        <label class="field-label" for="login-password">گذرواژه</label>
+        <div class="input-wrap"><span class="field-icon" data-icon="lock"></span><input id="login-password" name="password" type="password" required autocomplete="current-password" placeholder="گذرواژه"><button type="button" class="password-toggle" data-toggle-password="login-password" aria-label="نمایش گذرواژه" data-icon="eye"></button></div>
+        <div class="login-error" id="login-error" role="alert"></div>
+        <button class="button button-primary button-block" type="submit"><span>ورود به پنل</span><span data-icon="arrow-left"></span></button>
+      </form>
+      <div class="demo-accounts" id="demo-accounts">
+        <div class="demo-heading"><span class="demo-dot"></span><span>حساب‌های نمایشی</span><span class="demo-separator"></span></div>
+        <div class="demo-account-list">
+          <button type="button" data-demo-login="admin" data-demo-password="admin123"><span class="demo-avatar avatar-purple">م</span><span><b>مدیر مدرسه</b><small>ورود با یک کلیک</small></span><span class="demo-arrow" data-icon="chevron-left"></span></button>
+          <button type="button" data-demo-login="ahmadi" data-demo-password="teacher123"><span class="demo-avatar avatar-blue">ن</span><span><b>معلم</b><small>مشاهده پنل آموزشی</small></span><span class="demo-arrow" data-icon="chevron-left"></span></button>
+          <button type="button" data-demo-login="sara" data-demo-password="student123"><span class="demo-avatar avatar-green">س</span><span><b>دانش‌آموز</b><small>مشاهده پنل دانش‌آموزی</small></span><span class="demo-arrow" data-icon="chevron-left"></span></button>
+          <button type="button" data-demo-login="maryam" data-demo-password="parent123"><span class="demo-avatar avatar-purple">و</span><span><b>ولی دانش‌آموز</b><small>پیگیری پرونده فرزند</small></span><span class="demo-arrow" data-icon="chevron-left"></span></button>
+        </div>
+      </div>
+      <div class="login-footer"><span>نسخه ۱.۱.۰ · فارسی و راست‌چین</span><a href="/install">راه‌اندازی سامانه <span data-icon="arrow-left"></span></a></div>
+    </section>
+    <aside class="login-aside" aria-hidden="true">
+      <div class="login-aside-orbit orbit-one"></div><div class="login-aside-orbit orbit-two"></div>
+      <div class="login-illustration">
+        <div class="illustration-sun"></div>
+        <div class="illustration-board"><div class="board-top"><span></span><span></span><span></span><b>گزارش امروز</b></div><div class="board-chart"><i style="height:38%"></i><i style="height:62%"></i><i style="height:48%"></i><i style="height:82%"></i><i style="height:70%"></i><i style="height:95%"></i></div><div class="board-lines"><i></i><i></i><i></i></div></div>
+        <div class="illustration-book book-a"></div><div class="illustration-book book-b"></div>
+        <div class="illustration-person"><span class="person-head"></span><span class="person-body"></span></div>
+        <div class="floating-chip chip-top"><span class="chip-icon chip-check" data-icon="check"></span><span><b>حضور و غیاب</b><small>همه‌چیز مرتب است</small></span></div>
+        <div class="floating-chip chip-bottom"><span class="chip-icon chip-message" data-icon="message"></span><span><b>ارتباط نزدیک‌تر</b><small>با اولیا و دانش‌آموزان</small></span></div>
+      </div>
+      <div class="login-aside-copy"><span class="aside-pill"><i></i> برای مدرسه‌های امروزی</span><h2>همه چیز مدرسه،<br><em>در یک نگاه.</em></h2><p>از پرونده دانش‌آموز تا برنامه کلاس‌ها و ارتباط با خانواده‌ها؛ ساده، امن و همیشه در دسترس.</p><div class="login-proof"><div class="proof-avatars"><b>م</b><b>ن</b><b>س</b><b>+</b></div><span><strong>یک پنل برای همه</strong><small>مدیر، معلم، دانش‌آموز و اولیا</small></span></div></div>
+    </aside>
+  </div>
+
+  <div id="app" class="app-shell" hidden>
+    <div class="mobile-backdrop" id="mobile-backdrop"></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><span class="brand-cap"></span><span class="brand-book"></span></div>
+        <div class="sidebar-brand-copy"><strong>مدرسه‌یار</strong><small>مدیریت هوشمند مدرسه</small></div>
+        <button class="icon-button sidebar-close" id="sidebar-close" aria-label="بستن منو" data-icon="close"></button>
+      </div>
+      <div class="school-switcher">
+        <div class="school-avatar" id="school-avatar">م</div><div class="school-switcher-copy"><small>مدرسه شما</small><strong id="school-name-side">دبیرستان مهرآیین</strong></div>
+      </div>
+      <nav class="sidebar-nav" id="sidebar-nav" aria-label="منوی اصلی"></nav>
+      <div class="sidebar-bottom">
+        <a class="sidebar-help" href="/install" target="_blank" rel="noopener"><span class="help-icon" data-icon="help"></span><span><b>راهنما و نصب</b><small>راهنمای راه‌اندازی سامانه</small></span><span class="help-arrow" data-icon="external"></span></a>
+        <div class="sidebar-year"><span class="year-icon" data-icon="calendar"></span><span><small>سال تحصیلی</small><b id="school-year-side">۱۴۰۵–۱۴۰۶</b></span><span class="year-status"></span></div>
+      </div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <div class="topbar-leading">
+          <button class="icon-button mobile-menu-button" id="mobile-menu" aria-label="باز کردن منو" data-icon="menu"></button>
+          <div class="breadcrumb"><span id="breadcrumb-root">مدرسه</span><span data-icon="chevron-left"></span><strong id="breadcrumb-current">داشبورد</strong></div>
+        </div>
+        <div class="topbar-actions">
+          <label class="global-search" for="global-search"><span data-icon="search"></span><input type="search" id="global-search" placeholder="جست‌وجو در مدرسه..." autocomplete="off"><kbd>⌘ K</kbd></label>
+          <button class="icon-button topbar-icon" id="topbar-help" title="راهنمای سامانه" data-icon="help"></button>
+          <button class="icon-button topbar-icon notification-button" id="notification-button" title="اعلان‌ها" data-icon="bell"><span class="notification-dot" id="notification-dot"></span></button>
+          <div class="topbar-divider"></div>
+          <button class="profile-menu-button" id="profile-menu-button" aria-expanded="false">
+            <span class="profile-avatar" id="profile-avatar">م</span><span class="profile-copy"><b id="profile-name">مهسا رادمنش</b><small id="profile-role">مدیر مدرسه</small></span><span class="profile-chevron" data-icon="chevron-down"></span>
+          </button>
+          <div class="profile-menu" id="profile-menu" hidden></div>
+        </div>
+      </header>
+
+      <main class="page-content" id="page-content" tabindex="-1"></main>
+      <footer class="app-footer"><span>مدرسه‌یار <b>·</b> مدیریت یکپارچه مدرسه</span><span><i></i> سامانه آماده به کار است</span></footer>
+    </div>
+  </div>
+
+  <div class="modal-layer" id="modal-layer" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-card" id="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"></section>
+  </div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

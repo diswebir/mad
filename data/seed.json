@@ -1,0 +1,1157 @@
+{
+  "settings": {
+    "schoolName": "دبیرستان مهرآیین",
+    "schoolNameEn": "MehrAyin School",
+    "academicYear": "۱۴۰۵–۱۴۰۶",
+    "phone": "۰۲۱-۸۸۴۴۱۲۳۰",
+    "email": "info@mehrayin.edu.ir",
+    "address": "تهران، خیابان بهار، کوچه فرهنگ، پلاک ۱۲",
+    "timezone": "Asia/Tehran",
+    "currency": "تومان",
+    "installed": false,
+    "installedAt": null
+  },
+  "roles": [
+    {
+      "id": "admin",
+      "name": "مدیر مدرسه",
+      "description": "دسترسی کامل به همه بخش‌ها",
+      "users": 1
+    },
+    {
+      "id": "teacher",
+      "name": "معلم",
+      "description": "مدیریت کلاس‌ها، حضور و غیاب و ارزیابی",
+      "users": 4
+    },
+    {
+      "id": "student",
+      "name": "دانش‌آموز",
+      "description": "مشاهده پرونده، تکالیف و ارسال تیکت",
+      "users": 24
+    },
+    {
+      "id": "parent",
+      "name": "ولی دانش‌آموز",
+      "description": "پیگیری وضعیت آموزشی و ارتباط با مدرسه",
+      "users": 19
+    }
+  ],
+  "auditLogs": [],
+  "records": {
+    "classes": [
+      {
+        "id": "cls-801",
+        "name": "کلاس ۸۰۱",
+        "grade": "پایه هشتم",
+        "teacherId": "tch-01",
+        "room": "۱۲",
+        "capacity": 30,
+        "studentCount": 28,
+        "shift": "صبح",
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "cls-802",
+        "name": "کلاس ۸۰۲",
+        "grade": "پایه هشتم",
+        "teacherId": "tch-02",
+        "room": "۱۴",
+        "capacity": 30,
+        "studentCount": 26,
+        "shift": "صبح",
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "cls-901",
+        "name": "کلاس ۹۰۱",
+        "grade": "پایه نهم",
+        "teacherId": "tch-03",
+        "room": "۲۱",
+        "capacity": 28,
+        "studentCount": 27,
+        "shift": "صبح",
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "cls-902",
+        "name": "کلاس ۹۰۲",
+        "grade": "پایه نهم",
+        "teacherId": "tch-04",
+        "room": "۲۲",
+        "capacity": 28,
+        "studentCount": 24,
+        "shift": "عصر",
+        "status": "فعال",
+        "isDemo": true
+      }
+    ],
+    "teachers": [
+      {
+        "id": "tch-01",
+        "name": "نرگس احمدی",
+        "teacherNo": "T-۱۴۰۱",
+        "subject": "ریاضی",
+        "phone": "۰۹۱۲۱۲۳۴۵۶۷",
+        "email": "n.ahmadi@mehrayin.edu.ir",
+        "degree": "کارشناسی ارشد",
+        "classIds": [
+          "cls-801"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "tch-02",
+        "name": "رضا کریمی",
+        "teacherNo": "T-۱۴۰۲",
+        "subject": "علوم تجربی",
+        "phone": "۰۹۱۲۲۲۳۴۵۶۷",
+        "email": "r.karimi@mehrayin.edu.ir",
+        "degree": "کارشناسی ارشد",
+        "classIds": [
+          "cls-802"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "tch-03",
+        "name": "الهام موسوی",
+        "teacherNo": "T-۱۴۰۳",
+        "subject": "ادبیات فارسی",
+        "phone": "۰۹۱۲۳۲۳۴۵۶۷",
+        "email": "e.mousavi@mehrayin.edu.ir",
+        "degree": "کارشناسی",
+        "classIds": [
+          "cls-901"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "tch-04",
+        "name": "امیرحسین صالحی",
+        "teacherNo": "T-۱۴۰۴",
+        "subject": "زبان انگلیسی",
+        "phone": "۰۹۱۲۴۲۳۴۵۶۷",
+        "email": "a.salehi@mehrayin.edu.ir",
+        "degree": "دکتری",
+        "classIds": [
+          "cls-902"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      }
+    ],
+    "students": [
+      {
+        "id": "std-1001",
+        "name": "سارا محمدی",
+        "studentNo": "۱۴۰۵۰۱۰۰۱",
+        "classId": "cls-802",
+        "birthDate": "۱۳۹۲/۰۴/۱۸",
+        "gender": "دختر",
+        "phone": "۰۹۱۲۵۵۵۱۲۳۴",
+        "email": "sara.m@example.com",
+        "guardianName": "مریم محمدی",
+        "guardianRelation": "مادر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۱۱",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۲۲",
+        "address": "تهران، خیابان شریعتی",
+        "enrollmentDate": "۱۴۰۳/۰۶/۲۵",
+        "healthNotes": "حساسیت فصلی",
+        "status": "فعال",
+        "parentId": "par-01",
+        "isDemo": true
+      },
+      {
+        "id": "std-1002",
+        "name": "آرش رضایی",
+        "studentNo": "۱۴۰۵۰۱۰۰۲",
+        "classId": "cls-801",
+        "birthDate": "۱۳۹۲/۰۸/۰۳",
+        "gender": "پسر",
+        "phone": "۰۹۱۲۵۵۵۱۲۳۵",
+        "guardianName": "حسین رضایی",
+        "guardianRelation": "پدر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۱۲",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۱۳",
+        "address": "تهران، خیابان پاسداران",
+        "enrollmentDate": "۱۴۰۳/۰۶/۲۵",
+        "healthNotes": "",
+        "status": "فعال",
+        "parentId": "par-02",
+        "isDemo": true
+      },
+      {
+        "id": "std-1003",
+        "name": "نگار موسوی",
+        "studentNo": "۱۴۰۵۰۱۰۰۳",
+        "classId": "cls-802",
+        "birthDate": "۱۳۹۲/۰۲/۲۲",
+        "gender": "دختر",
+        "phone": "۰۹۱۲۵۵۵۱۲۳۶",
+        "guardianName": "فرشته موسوی",
+        "guardianRelation": "مادر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۱۴",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۱۵",
+        "address": "تهران، میدان هفت‌تیر",
+        "enrollmentDate": "۱۴۰۳/۰۶/۲۵",
+        "healthNotes": "",
+        "status": "فعال",
+        "parentId": "par-03",
+        "isDemo": true
+      },
+      {
+        "id": "std-1004",
+        "name": "علی احمدی",
+        "studentNo": "۱۴۰۵۰۱۰۰۴",
+        "classId": "cls-901",
+        "birthDate": "۱۳۹۱/۰۶/۱۰",
+        "gender": "پسر",
+        "phone": "۰۹۱۲۵۵۵۱۲۳۷",
+        "guardianName": "محمود احمدی",
+        "guardianRelation": "پدر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۱۶",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۱۷",
+        "address": "تهران، نارمک",
+        "enrollmentDate": "۱۴۰۲/۰۶/۲۵",
+        "healthNotes": "",
+        "status": "فعال",
+        "parentId": "par-04",
+        "isDemo": true
+      },
+      {
+        "id": "std-1005",
+        "name": "ترانه کریمی",
+        "studentNo": "۱۴۰۵۰۱۰۰۵",
+        "classId": "cls-801",
+        "birthDate": "۱۳۹۲/۰۱/۲۹",
+        "gender": "دختر",
+        "phone": "۰۹۱۲۵۵۵۱۲۳۸",
+        "guardianName": "زهرا کریمی",
+        "guardianRelation": "مادر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۱۸",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۱۹",
+        "address": "تهران، ونک",
+        "enrollmentDate": "۱۴۰۳/۰۶/۲۵",
+        "healthNotes": "",
+        "status": "فعال",
+        "parentId": "par-05",
+        "isDemo": true
+      },
+      {
+        "id": "std-1006",
+        "name": "یاسین کاظمی",
+        "studentNo": "۱۴۰۵۰۱۰۰۶",
+        "classId": "cls-902",
+        "birthDate": "۱۳۹۱/۰۹/۱۱",
+        "gender": "پسر",
+        "phone": "۰۹۱۲۵۵۵۱۲۳۹",
+        "guardianName": "لیلا کاظمی",
+        "guardianRelation": "مادر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۲۰",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۲۱",
+        "address": "تهران، تهرانپارس",
+        "enrollmentDate": "۱۴۰۲/۰۶/۲۵",
+        "healthNotes": "آسم خفیف",
+        "status": "فعال",
+        "parentId": "par-06",
+        "isDemo": true
+      },
+      {
+        "id": "std-1007",
+        "name": "نیکا صادقی",
+        "studentNo": "۱۴۰۵۰۱۰۰۷",
+        "classId": "cls-901",
+        "birthDate": "۱۳۹۱/۰۳/۰۷",
+        "gender": "دختر",
+        "phone": "۰۹۱۲۵۵۵۱۲۴۰",
+        "guardianName": "مینا صادقی",
+        "guardianRelation": "مادر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۲۳",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۲۴",
+        "address": "تهران، یوسف‌آباد",
+        "enrollmentDate": "۱۴۰۲/۰۶/۲۵",
+        "healthNotes": "",
+        "status": "فعال",
+        "parentId": "par-07",
+        "isDemo": true
+      },
+      {
+        "id": "std-1008",
+        "name": "محمدطاها جعفری",
+        "studentNo": "۱۴۰۵۰۱۰۰۸",
+        "classId": "cls-802",
+        "birthDate": "۱۳۹۲/۰۵/۱۲",
+        "gender": "پسر",
+        "phone": "۰۹۱۲۵۵۵۱۲۴۱",
+        "guardianName": "سمیه جعفری",
+        "guardianRelation": "مادر",
+        "guardianPhone": "۰۹۱۲۵۵۵۰۰۲۵",
+        "emergencyContact": "۰۹۱۲۵۵۵۰۰۲۶",
+        "address": "تهران، صادقیه",
+        "enrollmentDate": "۱۴۰۳/۰۶/۲۵",
+        "healthNotes": "",
+        "status": "فعال",
+        "parentId": "par-08",
+        "isDemo": true
+      }
+    ],
+    "parents": [
+      {
+        "id": "par-01",
+        "name": "مریم محمدی",
+        "relation": "مادر",
+        "phone": "۰۹۱۲۵۵۵۰۰۱۱",
+        "email": "maryam.m@example.com",
+        "studentIds": [
+          "std-1001"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "par-02",
+        "name": "حسین رضایی",
+        "relation": "پدر",
+        "phone": "۰۹۱۲۵۵۵۰۰۱۲",
+        "email": "hossein.r@example.com",
+        "studentIds": [
+          "std-1002"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "par-03",
+        "name": "فرشته موسوی",
+        "relation": "مادر",
+        "phone": "۰۹۱۲۵۵۵۰۰۱۴",
+        "email": "fereshteh.m@example.com",
+        "studentIds": [
+          "std-1003"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "par-04",
+        "name": "محمود احمدی",
+        "relation": "پدر",
+        "phone": "۰۹۱۲۵۵۵۰۰۱۶",
+        "email": "mahmoud.a@example.com",
+        "studentIds": [
+          "std-1004"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "par-05",
+        "name": "زهرا کریمی",
+        "relation": "مادر",
+        "phone": "۰۹۱۲۵۵۵۰۰۱۸",
+        "email": "zahra.k@example.com",
+        "studentIds": [
+          "std-1005"
+        ],
+        "status": "فعال",
+        "isDemo": true
+      }
+    ],
+    "subjects": [
+      {
+        "id": "sub-01",
+        "name": "ریاضی",
+        "code": "MTH-08",
+        "grade": "پایه هشتم",
+        "teacherId": "tch-01",
+        "weeklyHours": 4,
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "sub-02",
+        "name": "علوم تجربی",
+        "code": "SCI-08",
+        "grade": "پایه هشتم",
+        "teacherId": "tch-02",
+        "weeklyHours": 3,
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "sub-03",
+        "name": "ادبیات فارسی",
+        "code": "PER-09",
+        "grade": "پایه نهم",
+        "teacherId": "tch-03",
+        "weeklyHours": 3,
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "sub-04",
+        "name": "زبان انگلیسی",
+        "code": "ENG-09",
+        "grade": "پایه نهم",
+        "teacherId": "tch-04",
+        "weeklyHours": 2,
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "sub-05",
+        "name": "مطالعات اجتماعی",
+        "code": "SOC-08",
+        "grade": "پایه هشتم",
+        "teacherId": "tch-03",
+        "weeklyHours": 2,
+        "status": "فعال",
+        "isDemo": true
+      }
+    ],
+    "attendance": [
+      {
+        "id": "att-01",
+        "studentId": "std-1001",
+        "studentName": "سارا محمدی",
+        "classId": "cls-802",
+        "date": "2026-10-01",
+        "time": "۰۷:۴۸",
+        "status": "حاضر",
+        "note": "",
+        "isDemo": true
+      },
+      {
+        "id": "att-02",
+        "studentId": "std-1002",
+        "studentName": "آرش رضایی",
+        "classId": "cls-801",
+        "date": "2026-10-01",
+        "time": "۰۷:۵۲",
+        "status": "حاضر",
+        "note": "",
+        "isDemo": true
+      },
+      {
+        "id": "att-03",
+        "studentId": "std-1003",
+        "studentName": "نگار موسوی",
+        "classId": "cls-802",
+        "date": "2026-10-01",
+        "time": "۰۷:۵۶",
+        "status": "با تأخیر",
+        "note": "تأخیر ۵ دقیقه‌ای",
+        "isDemo": true
+      },
+      {
+        "id": "att-04",
+        "studentId": "std-1004",
+        "studentName": "علی احمدی",
+        "classId": "cls-901",
+        "date": "2026-10-01",
+        "time": "۰۷:۴۹",
+        "status": "حاضر",
+        "note": "",
+        "isDemo": true
+      },
+      {
+        "id": "att-05",
+        "studentId": "std-1005",
+        "studentName": "ترانه کریمی",
+        "classId": "cls-801",
+        "date": "2026-10-01",
+        "time": "—",
+        "status": "غایب",
+        "note": "اطلاع‌رسانی به ولی انجام شد",
+        "isDemo": true
+      },
+      {
+        "id": "att-06",
+        "studentId": "std-1006",
+        "studentName": "یاسین کاظمی",
+        "classId": "cls-902",
+        "date": "2026-10-01",
+        "time": "۰۷:۵۵",
+        "status": "حاضر",
+        "note": "",
+        "isDemo": true
+      },
+      {
+        "id": "att-07",
+        "studentId": "std-1007",
+        "studentName": "نیکا صادقی",
+        "classId": "cls-901",
+        "date": "2026-10-01",
+        "time": "۰۸:۰۲",
+        "status": "با تأخیر",
+        "note": "",
+        "isDemo": true
+      },
+      {
+        "id": "att-08",
+        "studentId": "std-1008",
+        "studentName": "محمدطاها جعفری",
+        "classId": "cls-802",
+        "date": "2026-10-01",
+        "time": "۰۷:۴۶",
+        "status": "حاضر",
+        "note": "",
+        "isDemo": true
+      },
+      {
+        "id": "att-09",
+        "studentId": "std-1001",
+        "studentName": "سارا محمدی",
+        "classId": "cls-802",
+        "date": "2026-09-30",
+        "time": "۰۷:۵۰",
+        "status": "حاضر",
+        "note": "",
+        "isDemo": true
+      },
+      {
+        "id": "att-10",
+        "studentId": "std-1002",
+        "studentName": "آرش رضایی",
+        "classId": "cls-801",
+        "date": "2026-09-30",
+        "time": "۰۷:۵۸",
+        "status": "با تأخیر",
+        "note": "",
+        "isDemo": true
+      }
+    ],
+    "tickets": [
+      {
+        "id": "tic-2051",
+        "subject": "درخواست بررسی غیبت روز دوشنبه",
+        "studentId": "std-1001",
+        "studentName": "سارا محمدی",
+        "classId": "cls-802",
+        "teacherId": "tch-02",
+        "category": "حضور و غیاب",
+        "priority": "متوسط",
+        "status": "در انتظار پاسخ",
+        "createdAt": "2026-09-30T08:12:00.000Z",
+        "lastReplyAt": "2026-10-01T06:30:00.000Z",
+        "messages": [
+          {
+            "sender": "مریم محمدی",
+            "role": "ولی دانش‌آموز",
+            "text": "سارا روز دوشنبه در مدرسه حاضر بود. لطفاً حضور ایشان را بررسی بفرمایید.",
+            "at": "2026-09-30T08:12:00.000Z"
+          },
+          {
+            "sender": "مدرسه مهرآیین",
+            "role": "مدیر",
+            "text": "درخواست شما دریافت شد و در حال بررسی با معلم کلاس هستیم.",
+            "at": "2026-10-01T06:30:00.000Z"
+          }
+        ],
+        "isDemo": true
+      },
+      {
+        "id": "tic-2052",
+        "subject": "دریافت برنامه امتحانات میان‌ترم",
+        "studentId": "std-1002",
+        "studentName": "آرش رضایی",
+        "classId": "cls-801",
+        "teacherId": "tch-01",
+        "category": "آموزشی",
+        "priority": "عادی",
+        "status": "باز",
+        "createdAt": "2026-10-01T05:25:00.000Z",
+        "lastReplyAt": "2026-10-01T05:25:00.000Z",
+        "messages": [
+          {
+            "sender": "آرش رضایی",
+            "role": "دانش‌آموز",
+            "text": "سلام، برنامه امتحانات میان‌ترم چه زمانی منتشر می‌شود؟",
+            "at": "2026-10-01T05:25:00.000Z"
+          }
+        ],
+        "isDemo": true
+      },
+      {
+        "id": "tic-2053",
+        "subject": "پیگیری وضعیت پرداخت شهریه",
+        "studentId": "std-1004",
+        "studentName": "علی احمدی",
+        "classId": "cls-901",
+        "teacherId": "tch-03",
+        "category": "مالی",
+        "priority": "بالا",
+        "status": "در حال پیگیری",
+        "createdAt": "2026-09-29T10:15:00.000Z",
+        "lastReplyAt": "2026-09-30T11:20:00.000Z",
+        "messages": [
+          {
+            "sender": "محمود احمدی",
+            "role": "ولی دانش‌آموز",
+            "text": "رسید پرداخت مرحله دوم را ارسال کرده‌ام. لطفاً وضعیت را بررسی کنید.",
+            "at": "2026-09-29T10:15:00.000Z"
+          },
+          {
+            "sender": "واحد مالی",
+            "role": "کارشناس مالی",
+            "text": "رسید دریافت شد؛ تا پایان امروز در حساب ثبت می‌شود.",
+            "at": "2026-09-30T11:20:00.000Z"
+          }
+        ],
+        "isDemo": true
+      },
+      {
+        "id": "tic-2054",
+        "subject": "درخواست جلسه با مشاور مدرسه",
+        "studentId": "std-1007",
+        "studentName": "نیکا صادقی",
+        "classId": "cls-901",
+        "teacherId": "tch-03",
+        "category": "مشاوره",
+        "priority": "متوسط",
+        "status": "باز",
+        "createdAt": "2026-09-28T07:45:00.000Z",
+        "lastReplyAt": "2026-09-28T07:45:00.000Z",
+        "messages": [
+          {
+            "sender": "مینا صادقی",
+            "role": "ولی دانش‌آموز",
+            "text": "برای گفت‌وگو با مشاور مدرسه در هفته آینده وقت خالی دارید؟",
+            "at": "2026-09-28T07:45:00.000Z"
+          }
+        ],
+        "isDemo": true
+      },
+      {
+        "id": "tic-2055",
+        "subject": "سؤال درباره تکلیف علوم",
+        "studentId": "std-1008",
+        "studentName": "محمدطاها جعفری",
+        "classId": "cls-802",
+        "teacherId": "tch-02",
+        "category": "آموزشی",
+        "priority": "عادی",
+        "status": "بسته",
+        "createdAt": "2026-09-26T09:15:00.000Z",
+        "lastReplyAt": "2026-09-27T07:15:00.000Z",
+        "messages": [
+          {
+            "sender": "محمدطاها جعفری",
+            "role": "دانش‌آموز",
+            "text": "تمرین صفحه ۳۲ را باید در دفتر بنویسیم؟",
+            "at": "2026-09-26T09:15:00.000Z"
+          },
+          {
+            "sender": "رضا کریمی",
+            "role": "معلم",
+            "text": "بله، پاسخ همه پرسش‌ها را در دفتر علوم بنویس و جلسه بعد همراه داشته باش.",
+            "at": "2026-09-27T07:15:00.000Z"
+          }
+        ],
+        "isDemo": true
+      }
+    ],
+    "grades": [
+      {
+        "id": "grd-01",
+        "studentId": "std-1001",
+        "studentName": "سارا محمدی",
+        "classId": "cls-802",
+        "subject": "ریاضی",
+        "exam": "آزمون فصل اول",
+        "score": 18.5,
+        "maxScore": 20,
+        "date": "۱۴۰۵/۰۶/۲۸",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "grd-02",
+        "studentId": "std-1001",
+        "studentName": "سارا محمدی",
+        "classId": "cls-802",
+        "subject": "علوم تجربی",
+        "exam": "ارزشیابی کلاسی",
+        "score": 19,
+        "maxScore": 20,
+        "date": "۱۴۰۵/۰۶/۲۶",
+        "teacherId": "tch-02",
+        "isDemo": true
+      },
+      {
+        "id": "grd-03",
+        "studentId": "std-1002",
+        "studentName": "آرش رضایی",
+        "classId": "cls-801",
+        "subject": "ریاضی",
+        "exam": "آزمون فصل اول",
+        "score": 16,
+        "maxScore": 20,
+        "date": "۱۴۰۵/۰۶/۲۸",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "grd-04",
+        "studentId": "std-1004",
+        "studentName": "علی احمدی",
+        "classId": "cls-901",
+        "subject": "ادبیات فارسی",
+        "exam": "انشا",
+        "score": 18,
+        "maxScore": 20,
+        "date": "۱۴۰۵/۰۶/۲۷",
+        "teacherId": "tch-03",
+        "isDemo": true
+      }
+    ],
+    "assignments": [
+      {
+        "id": "asg-01",
+        "title": "تمرین فصل دوم: معادله‌ها",
+        "subject": "ریاضی",
+        "classId": "cls-802",
+        "dueDate": "۱۴۰۵/۰۷/۱۲",
+        "status": "در حال انجام",
+        "description": "تمرین‌های ۱ تا ۸ صفحه ۴۲ کتاب را حل کنید.",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "asg-02",
+        "title": "گزارش آزمایش فشار هوا",
+        "subject": "علوم تجربی",
+        "classId": "cls-802",
+        "dueDate": "۱۴۰۵/۰۷/۱۰",
+        "status": "در حال انجام",
+        "description": "گزارش یک‌صفحه‌ای آزمایش را آماده کنید.",
+        "teacherId": "tch-02",
+        "isDemo": true
+      },
+      {
+        "id": "asg-03",
+        "title": "نگارش: یک روز به‌یادماندنی",
+        "subject": "ادبیات فارسی",
+        "classId": "cls-801",
+        "dueDate": "۱۴۰۵/۰۷/۱۴",
+        "status": "در حال انجام",
+        "description": "یک متن ۲۰۰ کلمه‌ای بنویسید.",
+        "teacherId": "tch-03",
+        "isDemo": true
+      }
+    ],
+    "exams": [
+      {
+        "id": "exm-01",
+        "title": "آزمون میان‌ترم ریاضی",
+        "subject": "ریاضی",
+        "classId": "cls-802",
+        "date": "۱۴۰۵/۰۷/۲۰",
+        "time": "۰۹:۰۰",
+        "room": "۱۴",
+        "status": "برنامه‌ریزی‌شده",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "exm-02",
+        "title": "ارزشیابی علوم",
+        "subject": "علوم تجربی",
+        "classId": "cls-801",
+        "date": "۱۴۰۵/۰۷/۲۲",
+        "time": "۱۰:۳۰",
+        "room": "۱۲",
+        "status": "برنامه‌ریزی‌شده",
+        "teacherId": "tch-02",
+        "isDemo": true
+      },
+      {
+        "id": "exm-03",
+        "title": "امتحان ادبیات فارسی",
+        "subject": "ادبیات فارسی",
+        "classId": "cls-901",
+        "date": "۱۴۰۵/۰۷/۲۵",
+        "time": "۰۸:۰۰",
+        "room": "۲۱",
+        "status": "برنامه‌ریزی‌شده",
+        "teacherId": "tch-03",
+        "isDemo": true
+      }
+    ],
+    "timetable": [
+      {
+        "id": "tt-01",
+        "day": "شنبه",
+        "startTime": "۱۰:۰۰",
+        "endTime": "۱۰:۴۵",
+        "subject": "ریاضی",
+        "classId": "cls-802",
+        "room": "۱۴",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "tt-02",
+        "day": "شنبه",
+        "startTime": "۰۹:۰۰",
+        "endTime": "۰۹:۴۵",
+        "subject": "علوم تجربی",
+        "classId": "cls-802",
+        "room": "۱۴",
+        "teacherId": "tch-02",
+        "isDemo": true
+      },
+      {
+        "id": "tt-03",
+        "day": "یکشنبه",
+        "startTime": "۰۸:۰۰",
+        "endTime": "۰۸:۴۵",
+        "subject": "ادبیات فارسی",
+        "classId": "cls-802",
+        "room": "۱۴",
+        "teacherId": "tch-03",
+        "isDemo": true
+      },
+      {
+        "id": "tt-04",
+        "day": "یکشنبه",
+        "startTime": "۰۹:۰۰",
+        "endTime": "۰۹:۴۵",
+        "subject": "زبان انگلیسی",
+        "classId": "cls-802",
+        "room": "۱۴",
+        "teacherId": "tch-04",
+        "isDemo": true
+      },
+      {
+        "id": "tt-05",
+        "day": "دوشنبه",
+        "startTime": "۰۸:۰۰",
+        "endTime": "۰۸:۴۵",
+        "subject": "علوم تجربی",
+        "classId": "cls-802",
+        "room": "۱۴",
+        "teacherId": "tch-02",
+        "isDemo": true
+      },
+      {
+        "id": "tt-06",
+        "day": "شنبه",
+        "startTime": "۰۸:۰۰",
+        "endTime": "۰۸:۴۵",
+        "subject": "ریاضی",
+        "classId": "cls-801",
+        "room": "۱۲",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "tt-07",
+        "day": "یکشنبه",
+        "startTime": "۰۹:۰۰",
+        "endTime": "۰۹:۴۵",
+        "subject": "ریاضی",
+        "classId": "cls-801",
+        "room": "۱۲",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "tt-08",
+        "day": "چهارشنبه",
+        "startTime": "۱۰:۰۰",
+        "endTime": "۱۰:۴۵",
+        "subject": "ریاضی",
+        "classId": "cls-801",
+        "room": "۱۲",
+        "teacherId": "tch-01",
+        "isDemo": true
+      },
+      {
+        "id": "tt-09",
+        "day": "شنبه",
+        "startTime": "۰۸:۰۰",
+        "endTime": "۰۸:۴۵",
+        "subject": "ادبیات فارسی",
+        "classId": "cls-901",
+        "room": "۲۱",
+        "teacherId": "tch-03",
+        "isDemo": true
+      },
+      {
+        "id": "tt-10",
+        "day": "دوشنبه",
+        "startTime": "۰۹:۰۰",
+        "endTime": "۰۹:۴۵",
+        "subject": "ادبیات فارسی",
+        "classId": "cls-901",
+        "room": "۲۱",
+        "teacherId": "tch-03",
+        "isDemo": true
+      },
+      {
+        "id": "tt-11",
+        "day": "پنجشنبه",
+        "startTime": "۱۰:۰۰",
+        "endTime": "۱۰:۴۵",
+        "subject": "ادبیات فارسی",
+        "classId": "cls-901",
+        "room": "۲۱",
+        "teacherId": "tch-03",
+        "isDemo": true
+      },
+      {
+        "id": "tt-12",
+        "day": "شنبه",
+        "startTime": "۰۸:۰۰",
+        "endTime": "۰۸:۴۵",
+        "subject": "زبان انگلیسی",
+        "classId": "cls-902",
+        "room": "۲۲",
+        "teacherId": "tch-04",
+        "isDemo": true
+      },
+      {
+        "id": "tt-13",
+        "day": "سه‌شنبه",
+        "startTime": "۰۹:۰۰",
+        "endTime": "۰۹:۴۵",
+        "subject": "زبان انگلیسی",
+        "classId": "cls-902",
+        "room": "۲۲",
+        "teacherId": "tch-04",
+        "isDemo": true
+      },
+      {
+        "id": "tt-14",
+        "day": "چهارشنبه",
+        "startTime": "۱۰:۰۰",
+        "endTime": "۱۰:۴۵",
+        "subject": "زبان انگلیسی",
+        "classId": "cls-902",
+        "room": "۲۲",
+        "teacherId": "tch-04",
+        "isDemo": true
+      }
+    ],
+    "notices": [
+      {
+        "id": "not-01",
+        "title": "جلسه اولیا و مربیان پایه هشتم",
+        "category": "جلسه",
+        "body": "جلسه اولیا و مربیان روز سه‌شنبه ۱۵ مهر ساعت ۱۶ در سالن اجتماعات برگزار می‌شود.",
+        "audience": "پایه هشتم",
+        "publishDate": "۱۴۰۵/۰۷/۰۹",
+        "status": "منتشرشده",
+        "isDemo": true
+      },
+      {
+        "id": "not-02",
+        "title": "آغاز ثبت‌نام کلاس‌های فوق‌برنامه",
+        "category": "اطلاعیه",
+        "body": "ثبت‌نام کلاس‌های رباتیک، نقاشی و شطرنج تا ۲۰ مهر ادامه دارد.",
+        "audience": "همه",
+        "publishDate": "۱۴۰۵/۰۷/۰۸",
+        "status": "منتشرشده",
+        "isDemo": true
+      },
+      {
+        "id": "not-03",
+        "title": "یادآوری تکمیل پرونده سلامت",
+        "category": "مهم",
+        "body": "لطفاً فرم سلامت دانش‌آموزان را تا پایان هفته تکمیل کنید.",
+        "audience": "همه",
+        "publishDate": "۱۴۰۵/۰۷/۰۷",
+        "status": "منتشرشده",
+        "isDemo": true
+      }
+    ],
+    "finance": [
+      {
+        "id": "fin-01",
+        "studentId": "std-1001",
+        "studentName": "سارا محمدی",
+        "title": "شهریه مهرماه",
+        "amount": 3500000,
+        "dueDate": "۱۴۰۵/۰۷/۱۵",
+        "paidAt": "۱۴۰۵/۰۷/۰۱",
+        "status": "پرداخت‌شده",
+        "method": "درگاه آنلاین",
+        "isDemo": true
+      },
+      {
+        "id": "fin-02",
+        "studentId": "std-1002",
+        "studentName": "آرش رضایی",
+        "title": "قسط دوم شهریه",
+        "amount": 3500000,
+        "dueDate": "۱۴۰۵/۰۷/۱۵",
+        "paidAt": "",
+        "status": "در انتظار پرداخت",
+        "method": "—",
+        "isDemo": true
+      },
+      {
+        "id": "fin-03",
+        "studentId": "std-1004",
+        "studentName": "علی احمدی",
+        "title": "هزینه کتاب‌های کمک‌آموزشی",
+        "amount": 850000,
+        "dueDate": "۱۴۰۵/۰۷/۱۰",
+        "paidAt": "۱۴۰۵/۰۷/۰۱",
+        "status": "پرداخت‌شده",
+        "method": "کارت‌خوان",
+        "isDemo": true
+      },
+      {
+        "id": "fin-04",
+        "studentId": "std-1007",
+        "studentName": "نیکا صادقی",
+        "title": "قسط اول شهریه",
+        "amount": 3500000,
+        "dueDate": "۱۴۰۵/۰۶/۳۰",
+        "paidAt": "",
+        "status": "سررسید گذشته",
+        "method": "—",
+        "isDemo": true
+      }
+    ],
+    "events": [
+      {
+        "id": "evt-01",
+        "title": "جلسه اولیا و مربیان",
+        "date": "۱۴۰۵/۰۷/۱۵",
+        "time": "۱۶:۰۰",
+        "location": "سالن اجتماعات",
+        "category": "جلسه",
+        "audience": "پایه هشتم",
+        "isDemo": true
+      },
+      {
+        "id": "evt-02",
+        "title": "اردوی علمی موزه علوم",
+        "date": "۱۴۰۵/۰۷/۱۹",
+        "time": "۰۸:۰۰",
+        "location": "موزه علوم و فناوری",
+        "category": "اردو",
+        "audience": "پایه نهم",
+        "isDemo": true
+      },
+      {
+        "id": "evt-03",
+        "title": "مسابقات ورزشی مدرسه",
+        "date": "۱۴۰۵/۰۷/۲۳",
+        "time": "۱۰:۰۰",
+        "location": "سالن ورزشی",
+        "category": "ورزشی",
+        "audience": "همه",
+        "isDemo": true
+      }
+    ],
+    "library": [
+      {
+        "id": "lib-01",
+        "title": "قصه‌های خوب برای بچه‌های خوب",
+        "author": "مهدی آذریزدی",
+        "category": "داستان",
+        "copies": 4,
+        "available": 2,
+        "status": "موجود",
+        "isDemo": true
+      },
+      {
+        "id": "lib-02",
+        "title": "دانشنامه علوم نوجوان",
+        "author": "گروه نویسندگان",
+        "category": "علمی",
+        "copies": 3,
+        "available": 1,
+        "status": "امانت",
+        "isDemo": true
+      },
+      {
+        "id": "lib-03",
+        "title": "شاهنامه برای نوجوانان",
+        "author": "فردوسی",
+        "category": "ادبیات",
+        "copies": 5,
+        "available": 5,
+        "status": "موجود",
+        "isDemo": true
+      }
+    ],
+    "transport": [
+      {
+        "id": "bus-01",
+        "route": "مسیر شمال",
+        "driver": "حامد نوری",
+        "phone": "۰۹۱۲۳۴۵۶۷۸۹",
+        "vehicle": "ون ۲۱ نفره",
+        "students": 18,
+        "departure": "۰۶:۵۵",
+        "status": "فعال",
+        "isDemo": true
+      },
+      {
+        "id": "bus-02",
+        "route": "مسیر شرق",
+        "driver": "مهدی رستمی",
+        "phone": "۰۹۱۲۳۴۵۶۷۸۰",
+        "vehicle": "مینی‌بوس",
+        "students": 22,
+        "departure": "۰۶:۴۵",
+        "status": "فعال",
+        "isDemo": true
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc-01",
+        "title": "راهنمای ثبت‌نام سال تحصیلی",
+        "category": "راهنما",
+        "audience": "اولیا",
+        "fileType": "PDF",
+        "updatedAt": "۱۴۰۵/۰۶/۲۰",
+        "status": "منتشرشده",
+        "isDemo": true
+      },
+      {
+        "id": "doc-02",
+        "title": "تقویم آموزشی ۱۴۰۵–۱۴۰۶",
+        "category": "تقویم",
+        "audience": "همه",
+        "fileType": "PDF",
+        "updatedAt": "۱۴۰۵/۰۶/۲۵",
+        "status": "منتشرشده",
+        "isDemo": true
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-01",
+        "title": "یادآوری ارسال فرم سلامت",
+        "to": "اولیای پایه هشتم",
+        "channel": "پیامک",
+        "sentAt": "۱۴۰۵/۰۷/۰۸",
+        "status": "ارسال‌شده",
+        "isDemo": true
+      },
+      {
+        "id": "msg-02",
+        "title": "برنامه آزمون‌های هفته آینده",
+        "to": "دانش‌آموزان پایه نهم",
+        "channel": "اعلان پنل",
+        "sentAt": "۱۴۰۵/۰۷/۰۷",
+        "status": "ارسال‌شده",
+        "isDemo": true
+      }
+    ]
+  }
+}

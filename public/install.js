@@ -128,7 +128,7 @@
       schoolName: field('schoolName').value.trim(), schoolNameEn: field('schoolName').value.trim(),
       academicYear: field('academicYear').value.trim(), phone: field('phone').value.trim(),
       email: field('email').value.trim(), address: field('address').value.trim(),
-      adminName: field('adminName').value.trim(), username: field('username').value.trim(), password: field('password').value,
+      adminName: field('adminName').value.trim(), adminPhone: field('adminPhone').value.trim(), username: field('username').value.trim(), password: field('password').value,
       preserveDemo: field('preserveDemo').checked,
       database: driver === 'mysql' ? {
         driver, host: field('dbHost').value.trim(), port: field('dbPort').value || 3306,

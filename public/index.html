@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#101b35">
   <meta name="description" content="مدرسه‌یار؛ سامانه مدیریت مدرسه، کلاس‌ها، حضور و غیاب و ارتباط با اولیا">
   <title>مدرسه‌یار | سامانه مدیریت مدرسه</title>
-  <link rel="stylesheet" href="/styles.css?v=20261001-7">
-  <script defer src="/icons.js?v=20261001-7"></script>
-  <script defer src="/app.js?v=20261001-7"></script>
+  <link rel="stylesheet" href="/styles.css?v=20261001-8">
+  <script defer src="/icons.js?v=20261001-8"></script>
+  <script defer src="/app.js?v=20261001-8"></script>
 </head>
 <body>
   <div class="login-screen" id="auth-screen">
@@ -24,6 +24,10 @@
         <h1 id="login-title">خوش آمدید 👋</h1>
         <p>برای ادامه، وارد حساب کاربری خود شوید.</p>
       </div>
+      <div class="login-method-tabs" id="login-method-tabs" role="tablist" aria-label="روش ورود" hidden>
+        <button type="button" role="tab" aria-selected="true" data-login-method="password">نام کاربری و گذرواژه</button>
+        <button type="button" role="tab" aria-selected="false" data-login-method="phone">کد پیامکی</button>
+      </div>
       <form id="login-form" class="login-form" autocomplete="on">
         <label class="field-label" for="login-username">نام کاربری</label>
         <div class="input-wrap"><span class="field-icon" data-icon="user"></span><input id="login-username" name="username" required autocomplete="username" placeholder="نام کاربری خود را وارد کنید"></div>
@@ -31,6 +35,17 @@
         <div class="input-wrap"><span class="field-icon" data-icon="lock"></span><input id="login-password" name="password" type="password" required autocomplete="current-password" placeholder="گذرواژه"><button type="button" class="password-toggle" data-toggle-password="login-password" aria-label="نمایش گذرواژه" data-icon="eye"></button></div>
         <div class="login-error" id="login-error" role="alert"></div>
         <button class="button button-primary button-block" type="submit"><span>ورود به پنل</span><span data-icon="arrow-left"></span></button>
+      </form>
+      <form id="phone-login-form" class="login-form" autocomplete="on" hidden>
+        <label class="field-label" for="login-phone">شماره موبایل</label>
+        <div class="input-wrap"><span class="field-icon" data-icon="phone"></span><input id="login-phone" name="phone" type="tel" required autocomplete="tel" inputmode="tel" maxlength="40" placeholder="۰۹۱۲۱۲۳۴۵۶۷"></div>
+        <div id="otp-code-field" hidden>
+          <label class="field-label" for="login-otp">کد یک‌بارمصرف</label>
+          <div class="input-wrap"><span class="field-icon" data-icon="lock"></span><input id="login-otp" name="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9۰-۹٠-٩]{6}" placeholder="کد ۶ رقمی پیامک‌شده"></div>
+        </div>
+        <div class="login-error" id="otp-login-error" role="alert"></div>
+        <button class="button button-primary button-block" type="submit" id="phone-login-submit"><span>دریافت کد ورود</span><span data-icon="arrow-left"></span></button>
+        <div class="otp-secondary-actions" id="otp-secondary-actions" hidden><button type="button" class="button button-outline button-small" id="otp-resend" disabled>ارسال دوبارهٔ کد</button><button type="button" class="button button-outline button-small" id="otp-edit-phone">ویرایش شماره</button></div>
       </form>
       <div class="demo-accounts" id="demo-accounts">
         <div class="demo-heading"><span class="demo-dot"></span><span>حساب‌های نمایشی</span><span class="demo-separator"></span></div>
@@ -41,7 +56,7 @@
           <button type="button" data-demo-login="maryam" data-demo-password="parent123"><span class="demo-avatar avatar-purple">و</span><span><b>ولی دانش‌آموز</b><small>پیگیری پرونده فرزند</small></span><span class="demo-arrow" data-icon="chevron-left"></span></button>
         </div>
       </div>
-      <div class="login-footer"><span>نسخه ۱.۱.۰ · فارسی و راست‌چین</span><a href="/install">راه‌اندازی سامانه <span data-icon="arrow-left"></span></a></div>
+      <div class="login-footer"><span>نسخه ۱.۲.۰ · فارسی و راست‌چین</span></div>
     </section>
     <aside class="login-aside" aria-hidden="true">
       <div class="login-aside-orbit orbit-one"></div><div class="login-aside-orbit orbit-two"></div>
@@ -70,7 +85,6 @@
       </div>
       <nav class="sidebar-nav" id="sidebar-nav" aria-label="منوی اصلی"></nav>
       <div class="sidebar-bottom">
-        <a class="sidebar-help" href="/install" target="_blank" rel="noopener"><span class="help-icon" data-icon="help"></span><span><b>راهنما و نصب</b><small>راهنمای راه‌اندازی سامانه</small></span><span class="help-arrow" data-icon="external"></span></a>
         <div class="sidebar-year"><span class="year-icon" data-icon="calendar"></span><span><small>سال تحصیلی</small><b id="school-year-side">۱۴۰۵–۱۴۰۶</b></span><span class="year-status"></span></div>
       </div>
     </aside>
@@ -83,7 +97,6 @@
         </div>
         <div class="topbar-actions">
           <label class="global-search" for="global-search"><span data-icon="search"></span><input type="search" id="global-search" placeholder="جست‌وجو در مدرسه..." autocomplete="off"><kbd>⌘ K</kbd></label>
-          <button class="icon-button topbar-icon" id="topbar-help" title="راهنمای سامانه" data-icon="help"></button>
           <button class="icon-button topbar-icon notification-button" id="notification-button" title="اعلان‌ها" data-icon="bell"><span class="notification-dot" id="notification-dot"></span></button>
           <div class="topbar-divider"></div>
           <button class="profile-menu-button" id="profile-menu-button" aria-expanded="false">

@@ -8,6 +8,7 @@
     "address": "تهران، خیابان بهار، کوچه فرهنگ، پلاک ۱۲",
     "timezone": "Asia/Tehran",
     "currency": "تومان",
+    "loginMode": "password",
     "installed": false,
     "installedAt": null
   },

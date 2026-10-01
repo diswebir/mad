@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const net = require('node:net');
 const { modules, collectionNames, roleResources } = require('../data/modules');
 const { hashPassword, safeUser, verifyPassword, randomId } = require('../lib/security');
 const { openMysqlStore } = require('../models/mysqlStore');
@@ -92,6 +93,10 @@ function parseCookies(header = '') {
   return result;
 }
 
+function isJsonRequest(req) {
+  return /^application\/json(?:\s*;|$)/i.test(String(req.headers?.['content-type'] || ''));
+}
+
 async function readBody(req, maxBytes = MAX_BODY) {
   let length = 0;
   const chunks = [];
@@ -115,6 +120,147 @@ function normalizeText(value, max = 300) {
   return String(value ?? '').trim().slice(0, max);
 }
 
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_RATE_WINDOW_MS = 15 * 60 * 1000;
+const OTP_PAIR_COOLDOWN_MS = 60 * 1000;
+const OTP_RATE_LIMITS = { pair: 3, phone: 5, ip: 60 };
+const OTP_MAX_STATE_ENTRIES = 10000;
+const GENERIC_OTP_MESSAGE = 'اگر شمارهٔ واردشده به یک حساب فعال متصل باشد، کد ورود ارسال می‌شود.';
+const LOGIN_MODES = new Set(['password', 'phone', 'both']);
+
+function normalizePhoneNumber(value) {
+  const raw = latinDigits(String(value ?? '').replace(/[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')).trim();
+  if (!raw || raw.length > 40 || /[\r\n]/.test(raw)) return '';
+  const compact = raw.replace(/[\s().-]/g, '');
+  if (!/^(?:\+|00)?\d+$/.test(compact)) return '';
+  const international = compact.startsWith('+') || compact.startsWith('00');
+  let digits = compact.replace(/[^0-9]/g, '');
+  if (compact.startsWith('00')) digits = digits.slice(2);
+  if (!international && /^09\d{9}$/.test(digits)) digits = `98${digits.slice(1)}`;
+  else if (!international && /^9\d{9}$/.test(digits)) digits = `98${digits}`;
+  else if (!international && !(digits.startsWith('98') && digits.length === 12)) return '';
+  return /^[1-9]\d{7,14}$/.test(digits) ? `+${digits}` : '';
+}
+
+function normalizedLoginMode(settings = {}) {
+  return LOGIN_MODES.has(settings.loginMode) ? settings.loginMode : 'password';
+}
+
+function smsConfigurationReady(sms = {}) {
+  return Boolean(
+    normalizeText(sms.apiKey, 512).length >= 8 &&
+    normalizePhoneNumber(sms.fromNumber) &&
+    normalizeText(sms.patternCode, 128) &&
+    /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/.test(String(sms.otpParam || 'code'))
+  );
+}
+
+function publicSmsSettings(config = {}, managedFields = []) {
+  const sms = config || {};
+  return {
+    configured: smsConfigurationReady(sms),
+    apiKeyConfigured: normalizeText(sms.apiKey, 512).length >= 8,
+    senderNumber: normalizeText(sms.fromNumber, 40),
+    patternCode: normalizeText(sms.patternCode, 128),
+    otpParam: normalizeText(sms.otpParam || 'code', 40),
+    managedFields: [...new Set(managedFields)].filter((field) => ['apiKey', 'fromNumber', 'patternCode', 'otpParam'].includes(field))
+  };
+}
+
+function ensureOtpState(ctx) {
+  if (!(ctx.otpChallenges instanceof Map)) ctx.otpChallenges = new Map();
+  if (!(ctx.otpRateLimits instanceof Map)) ctx.otpRateLimits = new Map();
+  if (!Buffer.isBuffer(ctx.otpSecret) || ctx.otpSecret.length < 32) ctx.otpSecret = crypto.randomBytes(32);
+  return { challenges: ctx.otpChallenges, rateLimits: ctx.otpRateLimits };
+}
+
+function pruneOtpState(ctx, now = Date.now()) {
+  const { challenges, rateLimits } = ensureOtpState(ctx);
+  for (const [id, challenge] of challenges) {
+    if (challenge.expiresAt <= now || challenge.attempts >= OTP_MAX_ATTEMPTS) challenges.delete(id);
+  }
+  for (const [key, limit] of rateLimits) if (limit.resetAt <= now) rateLimits.delete(key);
+  while (challenges.size > OTP_MAX_STATE_ENTRIES) challenges.delete(challenges.keys().next().value);
+  while (rateLimits.size > OTP_MAX_STATE_ENTRIES) rateLimits.delete(rateLimits.keys().next().value);
+  return { challenges, rateLimits };
+}
+
+function consumeOtpRateLimit(ctx, ip, phone, now = Date.now()) {
+  const { rateLimits } = pruneOtpState(ctx, now);
+  const policies = [
+    { key: `pair:${ip}:${phone}`, limit: OTP_RATE_LIMITS.pair, cooldown: OTP_PAIR_COOLDOWN_MS },
+    { key: `phone:${phone}`, limit: OTP_RATE_LIMITS.phone },
+    { key: `ip:${ip}`, limit: OTP_RATE_LIMITS.ip }
+  ];
+  for (const policy of policies) {
+    const current = rateLimits.get(policy.key);
+    if (!current || current.resetAt <= now) continue;
+    if (current.count >= policy.limit) return Math.max(1, Math.ceil((current.resetAt - now) / 1000));
+    if (policy.cooldown && now - current.lastAt < policy.cooldown) return Math.max(1, Math.ceil((policy.cooldown - (now - current.lastAt)) / 1000));
+  }
+  for (const policy of policies) {
+    const current = rateLimits.get(policy.key);
+    const next = current && current.resetAt > now ? current : { count: 0, resetAt: now + OTP_RATE_WINDOW_MS };
+    next.count += 1;
+    next.lastAt = now;
+    rateLimits.set(policy.key, next);
+  }
+  return 0;
+}
+
+function otpDigest(ctx, challengeId, code) {
+  return crypto.createHmac('sha256', ctx.otpSecret).update(`${challengeId}:${code}`).digest();
+}
+
+function clientIp(req, ctx) {
+  let remote = String(req.socket?.remoteAddress || 'local');
+  if (remote.startsWith('::ffff:')) remote = remote.slice(7);
+  const trustedLocalProxy = remote === '127.0.0.1' || remote === '::1';
+  if (ctx.trustProxy || trustedLocalProxy) {
+    const forwarded = String(req.headers?.['x-forwarded-for'] || '')
+      .split(',').map((value) => value.trim()).filter((value) => net.isIP(value));
+    const forwardedIp = forwarded.reverse().find((value) => value !== '127.0.0.1' && value !== '::1');
+    if (forwardedIp) return forwardedIp;
+  }
+  return remote || 'local';
+}
+
+function issueAuthSession(req, res, ctx, user, settings) {
+  if (!(ctx.sessions instanceof Map)) ctx.sessions = new Map();
+  const token = crypto.randomBytes(32).toString('hex');
+  ctx.sessions.set(token, { userId: user.id, expiresAt: Date.now() + 8 * 60 * 60 * 1000 });
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const secure = forwardedProto === 'https' || Boolean(req.socket.encrypted);
+  const cookie = `mad_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800${secure ? '; Secure' : ''}`;
+  return json(res, 200, { user: safeUser(user), settings: publicSettings(settings), ...(ctx.demoMode ? { demoSessionToken: token } : {}) }, { 'Set-Cookie': cookie });
+}
+
+async function sendIppanelOtp({ config, phone, code }) {
+  const sms = config || {};
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch('https://edge.ippanel.com/v1/api/send', {
+      method: 'POST',
+      headers: { Authorization: normalizeText(sms.apiKey, 512), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sending_type: 'pattern',
+        from_number: normalizePhoneNumber(sms.fromNumber),
+        code: normalizeText(sms.patternCode, 128),
+        recipients: [phone],
+        params: { [sms.otpParam || 'code']: code }
+      }),
+      signal: controller.signal
+    });
+    let result = null;
+    try { result = await response.json(); } catch { /* Treat non-JSON as a delivery failure. */ }
+    if (!response.ok || !result || result.meta?.status !== true || result.success === false || result.errors) throw new Error('IPPanel delivery failed');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function faNumber(value) {
   return new Intl.NumberFormat('fa-IR').format(Number(value || 0));
 }
@@ -130,7 +276,8 @@ function publicSettings(settings) {
     timezone: settings.timezone,
     currency: settings.currency,
     installed: Boolean(settings.installed),
-    installedAt: settings.installedAt || null
+    installedAt: settings.installedAt || null,
+    loginMode: normalizedLoginMode(settings)
   };
 }
 
@@ -496,7 +643,28 @@ function isValidUsername(username) {
 }
 
 function ensureUniqueUsername(state, username, exceptId = '') {
-  return !state.users.some((user) => user.username.toLowerCase() === username.toLowerCase() && user.id !== exceptId);
+  return !state.users.some((user) => String(user.username || '').toLowerCase() === username.toLowerCase() && user.id !== exceptId);
+}
+
+function hasDuplicateUserPhone(state, value, exceptId = '') {
+  const phone = normalizePhoneNumber(value);
+  return Boolean(phone && (state.users || []).some((user) => user.id !== exceptId && user.status !== 'غیرفعال' && normalizePhoneNumber(user.phone) === phone));
+}
+
+function otpAccountReadinessError(loginMode, users = []) {
+  if (!['phone', 'both'].includes(loginMode)) return '';
+  const phoneCounts = new Map();
+  for (const account of users || []) {
+    if (account.status === 'غیرفعال') continue;
+    const phone = normalizePhoneNumber(account.phone);
+    if (phone) phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
+  }
+  const uniquePhoneUsers = (users || []).filter((account) => account.status !== 'غیرفعال' && phoneCounts.get(normalizePhoneNumber(account.phone)) === 1);
+  if (!uniquePhoneUsers.length) return 'پیش از فعال‌سازی پیامک، دست‌کم یک حساب فعال با شمارهٔ موبایل معتبر و یکتا ثبت کنید.';
+  if (loginMode === 'phone' && !uniquePhoneUsers.some((account) => account.role === 'admin')) {
+    return 'برای جلوگیری از قفل‌شدن سامانه، حالت فقط پیامکی به شمارهٔ یکتای یک مدیر فعال نیاز دارد.';
+  }
+  return '';
 }
 
 function validateRoleAccess(user, resource, method, state) {
@@ -691,6 +859,18 @@ async function handleApi(req, res, url, ctx) {
       return json(res, 200, { installed: Boolean(state.settings.installed), schoolName: state.settings.schoolName || '' });
     }
 
+    if (path === '/api/auth/options' && method === 'GET') {
+      const state = await store().read();
+      const configuredMode = normalizedLoginMode(state.settings);
+      const loginMode = ctx.demoMode && configuredMode === 'phone' ? 'both' : configuredMode;
+      return json(res, 200, {
+        installed: Boolean(state.settings.installed),
+        loginMode,
+        phoneOtpAvailable: smsConfigurationReady(ctx.config?.sms),
+        passwordLoginAvailable: loginMode !== 'phone' || Boolean(ctx.demoMode)
+      });
+    }
+
     if (path === '/api/auth/me' && method === 'GET') {
       const state = await store().read();
       const user = getSessionUser(req, state, ctx);
@@ -701,12 +881,14 @@ async function handleApi(req, res, url, ctx) {
       const body = await readBody(req);
       const state = await store().read();
       if (!state.settings.installed && !ctx.demoMode) return json(res, 423, { error: 'پیش از ورود، ویزارد نصب را تکمیل کنید.' });
-      const ip = String(req.socket.remoteAddress || 'local');
+      if (normalizedLoginMode(state.settings) === 'phone' && !ctx.demoMode) return json(res, 403, { error: 'ورود با نام کاربری و گذرواژه غیرفعال است؛ از کد پیامکی استفاده کنید.' });
+      const ip = clientIp(req, ctx);
       const username = normalizeText(body.username, 40).toLowerCase();
+      if (!(ctx.loginAttempts instanceof Map)) ctx.loginAttempts = new Map();
       const attemptKey = `${ip}:${username}`;
       const attempt = ctx.loginAttempts.get(attemptKey);
       if (attempt && attempt.until > Date.now() && attempt.count >= 7) return json(res, 429, { error: 'تعداد تلاش‌ها زیاد است؛ ۱۵ دقیقه دیگر دوباره امتحان کنید.' });
-      const user = state.users.find((item) => item.username.toLowerCase() === username && item.status !== 'غیرفعال');
+      const user = state.users.find((item) => String(item.username || '').toLowerCase() === username && item.status !== 'غیرفعال');
       const valid = user ? await verifyPassword(String(body.password || ''), user.passwordHash) : false;
       if (!valid) {
         const current = attempt && attempt.until > Date.now() ? attempt : { count: 0, until: Date.now() + 15 * 60 * 1000 };
@@ -715,11 +897,74 @@ async function handleApi(req, res, url, ctx) {
         return json(res, 401, { error: 'نام کاربری یا گذرواژه درست نیست.' });
       }
       ctx.loginAttempts.delete(attemptKey);
-      const token = crypto.randomBytes(32).toString('hex');
-      ctx.sessions.set(token, { userId: user.id, expiresAt: Date.now() + 8 * 60 * 60 * 1000 });
-      const secure = req.headers['x-forwarded-proto'] === 'https' || req.socket.encrypted;
-      const cookie = `mad_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800${secure ? '; Secure' : ''}`;
-      return json(res, 200, { user: safeUser(user), settings: publicSettings(state.settings), ...(ctx.demoMode ? { demoSessionToken: token } : {}) }, { 'Set-Cookie': cookie });
+      return issueAuthSession(req, res, ctx, user, state.settings);
+    }
+
+    if (path === '/api/auth/otp/request' && method === 'POST') {
+      if (!isJsonRequest(req)) return json(res, 415, { error: 'درخواست معتبر نیست.' });
+      const body = await readBody(req);
+      const state = await store().read();
+      if (!state.settings.installed && !ctx.demoMode) return json(res, 423, { error: 'پیش از ورود، ویزارد نصب را تکمیل کنید.' });
+      const mode = normalizedLoginMode(state.settings);
+      if (!['phone', 'both'].includes(mode)) return json(res, 403, { error: 'ورود با کد پیامکی در تنظیمات مدیر فعال نیست.' });
+      if (!smsConfigurationReady(ctx.config?.sms)) return json(res, 503, { error: 'ورود پیامکی هنوز پیکربندی نشده است.' });
+      const phone = normalizePhoneNumber(body.phone);
+      if (!phone) return json(res, 400, { error: 'شماره موبایل معتبر وارد کنید؛ برای نمونه ۰۹۱۲۱۲۳۴۵۶۷ یا ‎+۹۸۹۱۲۱۲۳۴۵۶۷.' });
+      const ip = clientIp(req, ctx);
+      const retryAfter = consumeOtpRateLimit(ctx, ip, phone);
+      if (retryAfter) return json(res, 429, { error: 'درخواست کد بیش از حد مجاز است؛ کمی بعد دوباره تلاش کنید.' }, { 'Retry-After': String(retryAfter) });
+
+      const matchingUsers = (state.users || []).filter((candidate) => candidate.status !== 'غیرفعال' && normalizePhoneNumber(candidate.phone) === phone);
+      const user = matchingUsers.length === 1 ? matchingUsers[0] : null;
+      const challengeId = crypto.randomBytes(32).toString('hex');
+      if (user) {
+        const { challenges } = ensureOtpState(ctx);
+        for (const [id, challenge] of challenges) if (challenge.userId === user.id) challenges.delete(id);
+        const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+        challenges.set(challengeId, {
+          userId: user.id,
+          phone,
+          digest: otpDigest(ctx, challengeId, code),
+          attempts: 0,
+          expiresAt: Date.now() + OTP_TTL_MS
+        });
+        const sender = typeof ctx.sendSmsOtp === 'function' ? ctx.sendSmsOtp : sendIppanelOtp;
+        Promise.resolve().then(() => sender({ config: ctx.config.sms, phone, code })).catch(() => {
+          const active = challenges.get(challengeId);
+          if (active?.userId === user.id) challenges.delete(challengeId);
+          console.error('[otp] IPPanel message delivery failed.');
+        });
+      }
+      return json(res, 200, { challengeId, expiresIn: OTP_TTL_MS / 1000, resendAfter: OTP_PAIR_COOLDOWN_MS / 1000, message: GENERIC_OTP_MESSAGE });
+    }
+
+    if (path === '/api/auth/otp/verify' && method === 'POST') {
+      if (!isJsonRequest(req)) return json(res, 415, { error: 'درخواست معتبر نیست.' });
+      const body = await readBody(req);
+      const state = await store().read();
+      const genericError = 'کد واردشده معتبر نیست یا منقضی شده است؛ دوباره کد درخواست کنید.';
+      const challengeId = normalizeText(body.challengeId, 64);
+      const { challenges } = pruneOtpState(ctx);
+      const challenge = /^[a-f0-9]{64}$/i.test(challengeId) ? challenges.get(challengeId) : null;
+      if (!challenge || !state.settings.installed && !ctx.demoMode || !['phone', 'both'].includes(normalizedLoginMode(state.settings)) || !smsConfigurationReady(ctx.config?.sms)) {
+        if (challenge) challenges.delete(challengeId);
+        return json(res, 401, { error: genericError });
+      }
+      challenge.attempts += 1;
+      const code = latinDigits(normalizeText(body.otp, 20));
+      const receivedDigest = otpDigest(ctx, challengeId, code);
+      const validShape = /^\d{6}$/.test(code);
+      const validDigest = validShape && crypto.timingSafeEqual(receivedDigest, challenge.digest);
+      if (!validDigest) {
+        if (challenge.attempts >= OTP_MAX_ATTEMPTS) challenges.delete(challengeId);
+        return json(res, 401, { error: genericError });
+      }
+      const matchingUsers = (state.users || []).filter((candidate) => candidate.status !== 'غیرفعال' && normalizePhoneNumber(candidate.phone) === challenge.phone);
+      const user = matchingUsers.length === 1 && matchingUsers[0].id === challenge.userId ? matchingUsers[0] : null;
+      challenges.delete(challengeId);
+      if (!user) return json(res, 401, { error: genericError });
+      if (ctx.loginAttempts instanceof Map) ctx.loginAttempts.delete(`${clientIp(req, ctx)}:${String(user.username || '').toLowerCase()}`);
+      return issueAuthSession(req, res, ctx, user, state.settings);
     }
 
     if (path === '/api/auth/logout' && method === 'POST') {
@@ -751,12 +996,15 @@ async function handleApi(req, res, url, ctx) {
     if (path === '/api/install' && method === 'POST') {
       const body = await readBody(req);
       const currentState = await store().read();
+      if (ctx.demoMode) return json(res, 409, { error: 'ویزارد نصب در حالت نمایشی غیرفعال است.' });
       if (currentState.settings.installed) return json(res, 409, { error: 'سامانه قبلاً نصب شده است.' });
       const schoolName = normalizeText(body.schoolName, 120);
       const adminName = normalizeText(body.adminName, 100);
+      const adminPhone = normalizePhoneNumber(body.adminPhone);
       const username = normalizeText(body.username, 40).toLowerCase();
       const password = String(body.password || '');
       if (schoolName.length < 2 || adminName.length < 2) return json(res, 400, { error: 'نام مدرسه و نام مدیر را کامل وارد کنید.' });
+      if (!adminPhone) return json(res, 400, { error: 'شمارهٔ موبایل مدیر را با قالب معتبر، مانند ۰۹۱۲۱۲۳۴۵۶۷، وارد کنید.' });
       if (!isValidUsername(username)) return json(res, 400, { error: 'نام کاربری باید ۳ تا ۴۰ نویسه انگلیسی، عدد، نقطه، خط تیره یا زیرخط باشد.' });
       if (password.length < 10) return json(res, 400, { error: 'گذرواژه مدیر باید دست‌کم ۱۰ نویسه باشد.' });
       const fields = {
@@ -792,7 +1040,7 @@ async function handleApi(req, res, url, ctx) {
       }
       const adminUser = {
         id: randomId('usr'), username, name: adminName, role: 'admin', status: 'فعال',
-        phone: fields.phone, passwordHash: await hashPassword(password), isDemo: false,
+        phone: adminPhone, passwordHash: await hashPassword(password), isDemo: false,
         createdAt: new Date().toISOString()
       };
       const preserveDemo = body.preserveDemo !== false;
@@ -828,28 +1076,101 @@ async function handleApi(req, res, url, ctx) {
         user: { ...safeUser(user), roleName: (state.roles || []).find((entry) => entry.id === user.role)?.name || ({ admin: 'مدیر مدرسه', teacher: 'معلم', student: 'دانش‌آموز', parent: 'ولی دانش‌آموز' })[user.role] || user.role }, settings: publicSettings(state.settings), modules: visibleModules,
         dashboard: dashboardFor(state, user), role: user.role,
         demoMode: ctx.demoMode,
-        appVersion: ctx.appVersion || '1.1.0',
+        appVersion: ctx.appVersion || '1.2.0',
         unreadTickets: (recordsForRole(state, user, 'tickets') || []).filter((entry) => entry.status === 'باز' || entry.status === 'در انتظار پاسخ').length
       });
     }
 
     if (path === '/api/settings' && (method === 'GET' || method === 'PATCH')) {
       if (user.role !== 'admin') return json(res, 403, { error: 'فقط مدیر سامانه به تنظیمات دسترسی دارد.' });
-      if (method === 'GET') return json(res, 200, { settings: publicSettings(state.settings) });
+      if (method === 'GET') return json(res, 200, {
+        settings: publicSettings(state.settings),
+        sms: publicSmsSettings(ctx.config?.sms, ctx.config?.smsManagedFields)
+      });
       const body = await readBody(req);
+      const loginMode = Object.hasOwn(body, 'loginMode') ? body.loginMode : normalizedLoginMode(state.settings);
+      if (!LOGIN_MODES.has(loginMode)) return json(res, 400, { error: 'روش ورود انتخاب‌شده معتبر نیست.' });
+      const timezone = Object.hasOwn(body, 'timezone') ? normalizeText(body.timezone, 80) : undefined;
+      if (Object.hasOwn(body, 'timezone') && !isValidTimeZone(timezone)) {
+        return json(res, 400, { error: 'منطقهٔ زمانی باید یک شناسهٔ معتبر IANA مانند Asia/Tehran باشد.' });
+      }
+      const loginSettingsChanged = Object.hasOwn(body, 'loginMode') || Object.hasOwn(body, 'clearSmsCredentials') ||
+        ['smsApiKey', 'smsFromNumber', 'smsPatternCode', 'smsOtpParam'].some((key) => Object.hasOwn(body, key));
+      const managedFields = new Set(ctx.config?.smsManagedFields || []);
+      const currentSms = {
+        apiKey: String(ctx.config?.sms?.apiKey || ''),
+        fromNumber: String(ctx.config?.sms?.fromNumber || ''),
+        patternCode: String(ctx.config?.sms?.patternCode || ''),
+        otpParam: String(ctx.config?.sms?.otpParam || 'code')
+      };
+      const nextSms = { ...currentSms };
+      const smsPatch = {};
+      if (Object.hasOwn(body, 'clearSmsCredentials') && typeof body.clearSmsCredentials !== 'boolean') return json(res, 400, { error: 'گزینهٔ پاک‌سازی تنظیمات پیامک معتبر نیست.' });
+      if (body.clearSmsCredentials === true) {
+        if (managedFields.size) return json(res, 400, { error: 'بخشی از تنظیمات پیامک از متغیرهای محیطی مدیریت می‌شود و از این صفحه قابل پاک‌سازی نیست.' });
+        Object.assign(nextSms, { apiKey: '', fromNumber: '', patternCode: '', otpParam: 'code' });
+        Object.assign(smsPatch, nextSms);
+      } else {
+        const smsFields = [
+          { body: 'smsApiKey', field: 'apiKey', max: 512 },
+          { body: 'smsFromNumber', field: 'fromNumber', max: 40 },
+          { body: 'smsPatternCode', field: 'patternCode', max: 128 },
+          { body: 'smsOtpParam', field: 'otpParam', max: 40 }
+        ];
+        for (const item of smsFields) {
+          if (!Object.hasOwn(body, item.body)) continue;
+          if (managedFields.has(item.field)) return json(res, 400, { error: 'این بخش از تنظیمات پیامک از متغیرهای محیطی سرور مدیریت می‌شود.' });
+          if (typeof body[item.body] !== 'string') return json(res, 400, { error: 'مقدار یکی از تنظیمات پیامک باید متن باشد.' });
+          const raw = body[item.body].trim();
+          if (raw.length > item.max) return json(res, 400, { error: 'طول یکی از تنظیمات پیامک بیش از حد مجاز است.' });
+          if (!raw) continue;
+          if (item.field === 'apiKey') {
+            if (raw.length < 8 || /[\r\n\u0000]/.test(raw)) return json(res, 400, { error: 'کلید API پیامک معتبر نیست.' });
+            nextSms.apiKey = raw;
+          } else if (item.field === 'fromNumber') {
+            const senderNumber = normalizePhoneNumber(raw);
+            if (!senderNumber) return json(res, 400, { error: 'شمارهٔ فرستنده باید با قالب E.164 مانند ‎+983000505 وارد شود.' });
+            nextSms.fromNumber = senderNumber;
+          } else if (item.field === 'patternCode') {
+            if (/[\r\n\u0000]/.test(raw)) return json(res, 400, { error: 'شناسهٔ الگوی پیامک معتبر نیست.' });
+            nextSms.patternCode = raw;
+          } else {
+            if (!/^[a-zA-Z][a-zA-Z0-9_]{0,39}$/.test(raw)) return json(res, 400, { error: 'نام متغیر الگوی پیامک باید با حرف انگلیسی آغاز شود و فقط شامل حرف، عدد یا زیرخط باشد.' });
+            nextSms.otpParam = raw;
+          }
+          smsPatch[item.field] = nextSms[item.field];
+        }
+      }
+      if (loginSettingsChanged && ['phone', 'both'].includes(loginMode) && !smsConfigurationReady(nextSms)) {
+        return json(res, 400, { error: 'برای فعال‌کردن ورود پیامکی، کلید API، شمارهٔ فرستنده، شناسهٔ الگو و نام متغیر الگوی IPPanel را کامل کنید.' });
+      }
+      const otpAccountError = loginSettingsChanged ? otpAccountReadinessError(loginMode, state.users) : '';
+      if (otpAccountError) return json(res, 400, { error: otpAccountError });
+      if (Object.keys(smsPatch).length) {
+        if (typeof ctx.saveConfig === 'function') await ctx.saveConfig({ sms: smsPatch });
+        ctx.config ||= {};
+        ctx.config.sms = nextSms;
+      }
       const saved = await store().transact((draft) => {
         for (const key of ['schoolName', 'schoolNameEn', 'academicYear', 'phone', 'email', 'address', 'currency']) {
           if (Object.hasOwn(body, key)) draft.settings[key] = normalizeText(body[key], key === 'address' ? 240 : 120);
         }
-        if (Object.hasOwn(body, 'timezone')) {
-          const timezone = normalizeText(body.timezone, 80);
-          if (!isValidTimeZone(timezone)) throw Object.assign(new Error('منطقهٔ زمانی باید یک شناسهٔ معتبر IANA مانند Asia/Tehran باشد.'), { statusCode: 400 });
-          draft.settings.timezone = timezone;
+        if (Object.hasOwn(body, 'timezone')) draft.settings.timezone = timezone;
+        if (Object.hasOwn(body, 'loginMode')) draft.settings.loginMode = loginMode;
+        const draftLoginMode = normalizedLoginMode(draft.settings);
+        if (loginSettingsChanged && ['phone', 'both'].includes(draftLoginMode)) {
+          if (!smsConfigurationReady(nextSms)) throw Object.assign(new Error('برای فعال‌کردن ورود پیامکی، کلید API، شمارهٔ فرستنده، شناسهٔ الگو و نام متغیر الگوی IPPanel را کامل کنید.'), { statusCode: 400 });
+          const accountError = otpAccountReadinessError(draftLoginMode, draft.users);
+          if (accountError) throw Object.assign(new Error(accountError), { statusCode: 400 });
         }
-        addAudit(draft, user, 'update', 'settings', '', 'به‌روزرسانی تنظیمات مدرسه');
+        addAudit(draft, user, 'update', 'settings', '', 'به‌روزرسانی تنظیمات مدرسه و روش ورود');
         return publicSettings(draft.settings);
       });
-      return json(res, 200, { settings: saved, message: 'تنظیمات با موفقیت ذخیره شد.' });
+      return json(res, 200, {
+        settings: saved,
+        sms: publicSmsSettings(ctx.config?.sms, ctx.config?.smsManagedFields),
+        message: 'تنظیمات با موفقیت ذخیره شد.'
+      });
     }
 
     if (path === '/api/roles' && method === 'POST') {
@@ -945,6 +1266,22 @@ async function handleApi(req, res, url, ctx) {
       const account = state.users.find((entry) => entry.id === user.id);
       if (!account || !(await verifyPassword(String(body.currentPassword || ''), account.passwordHash))) return json(res, 403, { error: 'برای بازیابی، گذرواژهٔ فعلی مدیر را درست وارد کنید.' });
       if (!body.backup || typeof body.backup !== 'object') return json(res, 400, { error: 'فایل پشتیبان معتبر ارسال نشده است.' });
+      const restoredSettings = body.backup.state?.settings || {};
+      const restoredLoginMode = normalizedLoginMode(restoredSettings);
+      if (['phone', 'both'].includes(restoredLoginMode)) {
+        if (!smsConfigurationReady(ctx.config?.sms)) return json(res, 409, { error: 'فایل پشتیبان ورود پیامکی را فعال دارد؛ ابتدا IPPanel را روی این سرور پیکربندی کنید.' });
+        const backupUsers = Array.isArray(body.backup.state?.users) ? body.backup.state.users : [];
+        const phoneCounts = new Map();
+        for (const account of backupUsers) {
+          if (account?.status === 'غیرفعال') continue;
+          const phone = normalizePhoneNumber(account?.phone);
+          if (phone) phoneCounts.set(phone, (phoneCounts.get(phone) || 0) + 1);
+        }
+        const uniquePhoneUsers = backupUsers.filter((account) => account?.status !== 'غیرفعال' && phoneCounts.get(normalizePhoneNumber(account?.phone)) === 1);
+        if (!uniquePhoneUsers.length || (restoredLoginMode === 'phone' && !uniquePhoneUsers.some((account) => account.role === 'admin'))) {
+          return json(res, 409, { error: 'فایل پشتیبان شمارهٔ موبایل یکتای فعال، به‌ویژه برای مدیر، ندارد؛ ابتدا دسترسی ورود را اصلاح کنید.' });
+        }
+      }
       const safetyBackup = await ctx.backups.restore(body.backup);
       const restored = await store().read();
       ctx.sessions.clear();
@@ -1094,6 +1431,9 @@ async function handleApi(req, res, url, ctx) {
           const password = String(body.password || '');
           if (!name || !isValidUsername(username) || password.length < 8) return json(res, 400, { error: 'نام، نام کاربری معتبر و گذرواژه حداقل ۸ نویسه‌ای لازم است.' });
           if (!ensureUniqueUsername(state, username)) return json(res, 409, { error: 'این نام کاربری قبلاً استفاده شده است.' });
+          const accountPhone = normalizeText(body.phone, 40);
+          const accountStatus = normalizeText(body.status, 32) || 'فعال';
+          if (accountStatus !== 'غیرفعال' && hasDuplicateUserPhone(state, accountPhone)) return json(res, 409, { error: 'شمارهٔ موبایل نرمال‌شده قبلاً به حساب فعال دیگری متصل است.' });
           const customRole = customRoleConfig(state, body.role);
           if (!['admin', 'teacher', 'student', 'parent'].includes(body.role) && !customRole) return json(res, 400, { error: 'نقش انتخاب‌شده معتبر نیست.' });
           const role = body.role;
@@ -1107,8 +1447,8 @@ async function handleApi(req, res, url, ctx) {
           if (role === 'teacher' && !state.records.teachers.some((entry) => entry.id === teacherId)) return json(res, 400, { error: 'برای حساب معلم، پرونده معتبر انتخاب کنید.' });
           if (role === 'parent' && !state.records.parents.some((entry) => entry.id === parentId)) return json(res, 400, { error: 'برای حساب ولی، پرونده معتبر اولیا انتخاب کنید.' });
           const created = {
-            id: randomId('usr'), username, name, role, status: normalizeText(body.status, 32) || 'فعال',
-            phone: normalizeText(body.phone, 32), passwordHash: await hashPassword(password),
+            id: randomId('usr'), username, name, role, status: accountStatus,
+            phone: accountPhone, passwordHash: await hashPassword(password),
             isDemo: false, createdAt: new Date().toISOString()
           };
           if (role === 'student') created.studentId = studentId;
@@ -1117,6 +1457,7 @@ async function handleApi(req, res, url, ctx) {
           if (customRole?.scope === 'classes') created.classIds = classIds;
           const savedUser = await store().transact((draft) => {
             if (!ensureUniqueUsername(draft, username)) throw Object.assign(new Error('این نام کاربری قبلاً استفاده شده است.'), { statusCode: 409 });
+            if (created.status !== 'غیرفعال' && hasDuplicateUserPhone(draft, created.phone)) throw Object.assign(new Error('شمارهٔ موبایل نرمال‌شده قبلاً به حساب فعال دیگری متصل است.'), { statusCode: 409 });
             draft.users.push(created);
             addAudit(draft, user, 'create', 'users', created.id, `ساخت حساب ${created.name}`);
             return created;
@@ -1217,7 +1558,8 @@ async function handleApi(req, res, url, ctx) {
           if (!isValidUsername(login.username)) return json(res, 400, { error: 'نام کاربری حساب باید ۳ تا ۴۰ نویسه انگلیسی و عدد باشد.' });
           if (login.password.length < 8) return json(res, 400, { error: 'گذرواژه حساب باید دست‌کم ۸ نویسه باشد.' });
           if (!ensureUniqueUsername(state, login.username)) return json(res, 409, { error: 'این نام کاربری قبلاً استفاده شده است.' });
-          account = { id: randomId('usr'), username: login.username, name: record.name, role: resource === 'students' ? 'student' : 'teacher', status: 'فعال', passwordHash: await hashPassword(login.password), isDemo: false, createdAt: new Date().toISOString() };
+          if (hasDuplicateUserPhone(state, record.phone)) return json(res, 409, { error: 'شمارهٔ موبایل نرمال‌شده قبلاً به حساب فعال دیگری متصل است.' });
+          account = { id: randomId('usr'), username: login.username, name: record.name, role: resource === 'students' ? 'student' : 'teacher', status: 'فعال', phone: normalizeText(record.phone, 40), passwordHash: await hashPassword(login.password), isDemo: false, createdAt: new Date().toISOString() };
           if (resource === 'students') account.studentId = record.id;
           if (resource === 'teachers') account.teacherId = record.id;
           delete record.accountUsername;
@@ -1238,7 +1580,11 @@ async function handleApi(req, res, url, ctx) {
             const issue = validateTimetableEntry(draft.records.timetable || [], record);
             if (issue) throw Object.assign(new Error(issue.message), { statusCode: issue.status });
           }
-          if (account) draft.users.push(account);
+          if (account) {
+            if (!ensureUniqueUsername(draft, account.username)) throw Object.assign(new Error('این نام کاربری قبلاً استفاده شده است.'), { statusCode: 409 });
+            if (hasDuplicateUserPhone(draft, account.phone)) throw Object.assign(new Error('شمارهٔ موبایل نرمال‌شده قبلاً به حساب فعال دیگری متصل است.'), { statusCode: 409 });
+            draft.users.push(account);
+          }
           draft.records[resource].unshift(record);
           if (resource === 'students' && record.classId) {
             const classroom = draft.records.classes.find((entry) => entry.id === record.classId);
@@ -1273,6 +1619,10 @@ async function handleApi(req, res, url, ctx) {
           if (!target) return json(res, 404, { error: 'کاربر پیدا نشد.' });
           const allowedUserFields = new Set(['name', 'phone', 'status', 'role', 'password', 'studentId', 'teacherId', 'parentId', 'classIds']);
           if (Object.keys(body).some((key) => !allowedUserFields.has(key))) return json(res, 400, { error: 'یکی از فیلدهای ارسالی برای ویرایش کاربر مجاز نیست.' });
+          const phoneWillChange = Object.hasOwn(body, 'phone') || (Object.hasOwn(body, 'status') && body.status !== 'غیرفعال' && target.status === 'غیرفعال');
+          const nextPhone = Object.hasOwn(body, 'phone') ? normalizeText(body.phone, 40) : target.phone;
+          const nextStatus = Object.hasOwn(body, 'status') ? body.status : target.status;
+          if (phoneWillChange && nextStatus !== 'غیرفعال' && hasDuplicateUserPhone(state, nextPhone, recordId)) return json(res, 409, { error: 'شمارهٔ موبایل نرمال‌شده قبلاً به حساب فعال دیگری متصل است.' });
           const nextRole = Object.hasOwn(body, 'role') ? body.role : target.role;
           const nextCustomRole = customRoleConfig(state, nextRole);
           if (!['admin', 'teacher', 'student', 'parent'].includes(nextRole) && !nextCustomRole) return json(res, 400, { error: 'نقش انتخاب‌شده معتبر نیست.' });
@@ -1294,13 +1644,17 @@ async function handleApi(req, res, url, ctx) {
           }
           const updated = await store().transact(async (draft) => {
             const item = draft.users.find((entry) => entry.id === recordId);
+            if (!item) throw Object.assign(new Error('کاربر پیدا نشد.'), { statusCode: 404 });
+            const draftPhone = Object.hasOwn(body, 'phone') ? normalizeText(body.phone, 40) : item.phone;
+            const draftStatus = Object.hasOwn(body, 'status') ? body.status : item.status;
+            if ((Object.hasOwn(body, 'phone') || (Object.hasOwn(body, 'status') && body.status !== 'غیرفعال' && item.status === 'غیرفعال')) && draftStatus !== 'غیرفعال' && hasDuplicateUserPhone(draft, draftPhone, recordId)) throw Object.assign(new Error('شمارهٔ موبایل نرمال‌شده قبلاً به حساب فعال دیگری متصل است.'), { statusCode: 409 });
             if (item.id === user.id && (nextRole !== 'admin' || body.status === 'غیرفعال')) throw Object.assign(new Error('نمی‌توانید نقش مدیر یا وضعیت حساب فعلی خود را غیرفعال کنید.'), { statusCode: 409 });
             if (Object.hasOwn(body, 'name')) {
               const name = normalizeText(body.name, 100);
               if (!name) throw Object.assign(new Error('نام کاربر نمی‌تواند خالی باشد.'), { statusCode: 400 });
               item.name = name;
             }
-            if (Object.hasOwn(body, 'phone')) item.phone = normalizeText(body.phone, 32);
+            if (Object.hasOwn(body, 'phone')) item.phone = normalizeText(body.phone, 40);
             if (Object.hasOwn(body, 'status')) item.status = body.status;
             if (roleChanged || Object.hasOwn(body, 'role')) item.role = nextRole;
             if (roleChanged || associationSubmitted) {
@@ -1315,6 +1669,8 @@ async function handleApi(req, res, url, ctx) {
             }
             const activeAdmins = draft.users.filter((entry) => entry.role === 'admin' && entry.status !== 'غیرفعال');
             if (!activeAdmins.length) throw Object.assign(new Error('سامانه باید دست‌کم یک مدیر فعال داشته باشد.'), { statusCode: 409 });
+            const otpAccountError = otpAccountReadinessError(normalizedLoginMode(draft.settings), draft.users);
+            if (otpAccountError) throw Object.assign(new Error(otpAccountError), { statusCode: 409 });
             addAudit(draft, user, 'update', resource, item.id, `به‌روزرسانی کاربر ${item.name}`);
             return safeUser(item);
           });
@@ -1516,6 +1872,8 @@ async function handleApi(req, res, url, ctx) {
               for (const account of draft.users) if (account.parentId === deleted.id) account.status = 'غیرفعال';
             }
           }
+          const otpAccountError = otpAccountReadinessError(normalizedLoginMode(draft.settings), draft.users);
+          if (otpAccountError) throw Object.assign(new Error(otpAccountError), { statusCode: 409 });
           addAudit(draft, user, 'delete', resource, recordId, `حذف رکورد ${recordId}`);
           return true;
         });
@@ -1532,4 +1890,4 @@ async function handleApi(req, res, url, ctx) {
   }
 }
 
-module.exports = { handleApi, json, readBody };
+module.exports = { handleApi, json, readBody, sendIppanelOtp, normalizePhoneNumber, smsConfigurationReady };

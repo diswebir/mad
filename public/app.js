@@ -2,10 +2,10 @@
 (() => {
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.2.0';
   let storedDemoSession = '';
   try { storedDemoSession = window.sessionStorage.getItem('mad-demo-session') || ''; } catch { /* session storage may be unavailable */ }
-  const state = { user: null, settings: {}, modules: [], dashboard: {}, demoMode: false, appVersion: APP_VERSION, demoSessionToken: storedDemoSession, cache: {}, page: 'dashboard', search: '', statusFilter: '', openNavGroup: '', calendarYear: 0, calendarMonth: 0, calendarGrade: '', calendarSelectedDay: '', calendarData: { events: [], timetable: [], classes: [] }, attendanceClassId: '', attendanceDate: '', attendanceAbsentIds: new Set(), attendanceDirty: false, attendanceSearch: '', attendanceMode: 'quick' };
+  const state = { user: null, settings: {}, modules: [], dashboard: {}, demoMode: false, appVersion: APP_VERSION, demoSessionToken: storedDemoSession, authOptions: null, loginMethod: 'password', otpChallengeId: '', otpResendTimer: null, cache: {}, page: 'dashboard', search: '', statusFilter: '', openNavGroup: '', calendarYear: 0, calendarMonth: 0, calendarGrade: '', calendarSelectedDay: '', calendarData: { events: [], timetable: [], classes: [] }, attendanceClassId: '', attendanceDate: '', attendanceAbsentIds: new Set(), attendanceDirty: false, attendanceSearch: '', attendanceMode: 'quick' };
   function setDemoSessionToken(token) {
     state.demoSessionToken = typeof token === 'string' ? token : '';
     try {
@@ -291,6 +291,56 @@
     return data;
   }
 
+  function clearOtpChallenge() {
+    if (state.otpResendTimer) clearInterval(state.otpResendTimer);
+    state.otpResendTimer = null;
+    state.otpChallengeId = '';
+    $('#otp-code-field').hidden = true;
+    $('#otp-secondary-actions').hidden = true;
+    $('#otp-resend').disabled = true;
+    $('#otp-resend').textContent = 'ارسال دوبارهٔ کد';
+    $('#login-otp').value = '';
+    $('#login-phone').readOnly = false;
+    $('#phone-login-submit').disabled = false;
+    $('#phone-login-submit span:first-child').textContent = 'دریافت کد ورود';
+  }
+
+  function setLoginMethod(method = 'password') {
+    const options = state.authOptions || {};
+    const mode = ['password', 'phone', 'both'].includes(options.loginMode) ? options.loginMode : 'password';
+    const phoneAvailable = Boolean(options.phoneOtpAvailable);
+    const passwordAvailable = options.passwordLoginAvailable !== false;
+    const tabs = $('#login-method-tabs');
+    tabs.hidden = !(mode === 'both' && phoneAvailable && passwordAvailable);
+    if (mode === 'phone' && phoneAvailable) state.loginMethod = 'phone';
+    else if (mode === 'phone' && !passwordAvailable) state.loginMethod = 'phone';
+    else if (mode === 'both' && phoneAvailable && passwordAvailable) state.loginMethod = method === 'phone' ? 'phone' : 'password';
+    else state.loginMethod = 'password';
+    $('#login-form').hidden = state.loginMethod !== 'password' || !passwordAvailable;
+    $('#phone-login-form').hidden = state.loginMethod !== 'phone' || !phoneAvailable;
+    $$('[data-login-method]').forEach((button) => {
+      const selected = button.dataset.loginMethod === state.loginMethod;
+      button.classList.toggle('is-active', selected);
+      button.setAttribute('aria-selected', String(selected));
+    });
+    $('#phone-login-submit').disabled = !phoneAvailable;
+    $('#otp-login-error').textContent = '';
+    if (mode === 'phone' && !phoneAvailable && !passwordAvailable) {
+      $('#phone-login-form').hidden = false;
+      $('#otp-login-error').textContent = 'ورود پیامکی هنوز برای این سامانه پیکربندی نشده است؛ مدیر باید تنظیمات IPPanel را بررسی کند.';
+    }
+    $('#login-error').textContent = '';
+  }
+
+  async function loadLoginOptions() {
+    try {
+      state.authOptions = await request('/api/auth/options');
+    } catch {
+      state.authOptions = { loginMode: 'password', phoneOtpAvailable: false, passwordLoginAvailable: true };
+    }
+    setLoginMethod(state.loginMethod);
+  }
+
   function showLogin(demoMode) {
     state.user = null;
     state.demoMode = Boolean(demoMode);
@@ -298,6 +348,9 @@
     $('#auth-screen').hidden = false;
     $('#demo-accounts').hidden = !state.demoMode;
     $('#login-error').textContent = '';
+    $('#otp-login-error').textContent = '';
+    clearOtpChallenge();
+    loadLoginOptions();
   }
 
   async function boot() {
@@ -1145,7 +1198,7 @@
       ['email', 'ایمیل مدرسه', settings.email, false], ['currency', 'واحد پول', settings.currency, false],
       ['address', 'نشانی مدرسه', settings.address, true], ['timezone', 'منطقهٔ زمانی IANA', settings.timezone || 'Asia/Tehran', false]
     ];
-    return `<header class="page-heading"><div class="page-heading-with-icon"><span class="page-hero-icon">${icon('settings', 20)}</span><div class="page-heading-copy"><div class="page-kicker">${icon('sparkles', 12)} پیکربندی</div><h1>تنظیمات مدرسه</h1><p>اطلاعات پایه و مشخصات نمایش‌داده‌شده در سامانه را مدیریت کنید.</p></div></div></header><div class="settings-layout"><section class="panel settings-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('school', 16)}</span><span><h2>مشخصات مدرسه</h2><p>این اطلاعات در سربرگ پنل و مکاتبات مدرسه استفاده می‌شود.</p></span></div><form id="settings-form"><div class="settings-form-grid">${fields.map(([name,label,value,wide]) => `<div class="form-field ${wide ? 'field-wide' : ''}"><label for="setting-${name}">${label}</label><input id="setting-${name}" name="${name}" value="${esc(value || '')}" ${name === 'email' ? 'type="email"' : ''} maxlength="${name === 'address' ? 240 : name === 'timezone' ? 80 : 120}" placeholder="${name === 'timezone' ? 'مثال: Asia/Tehran' : ''}"></div>`).join('')}</div><div class="form-actions"><span class="form-hint">تغییرات بلافاصله در پنل اعمال می‌شود.</span><button class="button button-primary" type="submit">${icon('check', 15)} ذخیره تغییرات</button></div></form></section><aside class="panel settings-aside-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('shield-check', 16)}</span><span><h2>وضعیت سامانه</h2><p>اطلاعات نصب و نسخه فعلی</p></span></div><div class="settings-info-list"><div class="settings-info-row"><span>وضعیت نصب</span><b>${settings.installed ? 'راه‌اندازی شده' : 'حالت نمایشی'}</b></div><div class="settings-info-row"><span>نسخه سامانه</span><b>${esc(state.appVersion || APP_VERSION)}</b></div><div class="settings-info-row"><span>زبان و جهت</span><b>فارسی · راست‌چین</b></div><div class="settings-info-row"><span>فونت رابط کاربری</span><b>Vazirmatn</b></div><div class="settings-info-row"><span>حساب فعلی</span><b>${esc(roleName(state.user.role))}</b></div></div><div class="system-health">${icon('check', 17)}<span><b>همه سرویس‌ها فعال هستند</b><small>آخرین بررسی: همین لحظه</small></span></div></aside><section class="panel settings-aside-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('modules', 16)}</span><span><h2>سامانه ماژولار</h2><p>بخش‌های موردنیاز مدرسه را فعال نگه دارید.</p></span></div><p class="form-hint">از بخش «مدیریت ماژول‌ها» می‌توانید قابلیت‌های مدرسه را روشن یا خاموش کنید؛ اطلاعات هر ماژول در فایل یا پایگاه داده سامانه باقی می‌ماند.</p><button class="button button-outline" type="button" data-quick-nav="modules" style="margin-top:14px">مدیریت ماژول‌ها ${icon('arrow-left', 14)}</button></section></div><section class="panel backup-management-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('shield-check', 16)}</span><span><h2>پشتیبان‌گیری و بازیابی</h2><p>نسخهٔ امن خارج از پوشهٔ عمومی هاست نگهداری می‌شود.</p></span></div><div class="backup-management-grid"><div class="backup-action-block"><h3>ساخت / دریافت نسخهٔ پشتیبان</h3><p>پشتیبان شامل اطلاعات مدرسه و هش گذرواژه‌هاست؛ فایل را محرمانه نگه دارید.</p><div class="backup-controls"><button class="button button-primary" type="button" id="backup-create">${icon('plus', 14)} ساخت نسخهٔ جدید</button><select id="backup-select" aria-label="انتخاب نسخهٔ پشتیبان"><option value="">در حال دریافت فهرست…</option></select><button class="button button-outline" type="button" id="backup-download">${icon('download', 14)} دانلود</button></div></div><div class="backup-action-block backup-restore-block"><h3>بازیابی از فایل JSON</h3><p>بازیابی داده‌های فعلی را جایگزین می‌کند و نشست همهٔ کاربران را می‌بندد؛ پیش از آن نسخهٔ ایمنی ساخته می‌شود.</p><div class="backup-controls backup-restore-controls"><input id="backup-upload" type="file" accept=".json,application/json" aria-label="انتخاب فایل پشتیبان"><input id="backup-password" type="password" autocomplete="current-password" placeholder="گذرواژه فعلی مدیر" aria-label="گذرواژه فعلی مدیر"><button class="button button-danger" type="button" id="backup-restore">${icon('audit', 14)} بازیابی</button></div></div></div><small class="backup-security-note">پشتیبان‌گیری خودکار روزانه روی سرور فعال است؛ نسخه‌های ۱۴ روز اخیر نگهداری می‌شوند. برای حفاظت در برابر خرابی کامل هاست، نسخه‌ای را نیز خارج از هاست نگه دارید.</small></section>`;
+    return `<header class="page-heading"><div class="page-heading-with-icon"><span class="page-hero-icon">${icon('settings', 20)}</span><div class="page-heading-copy"><div class="page-kicker">${icon('sparkles', 12)} پیکربندی</div><h1>تنظیمات مدرسه</h1><p>اطلاعات پایه و مشخصات نمایش‌داده‌شده در سامانه را مدیریت کنید.</p></div></div></header><div class="settings-layout"><section class="panel settings-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('school', 16)}</span><span><h2>مشخصات مدرسه</h2><p>این اطلاعات در سربرگ پنل و مکاتبات مدرسه استفاده می‌شود.</p></span></div><form id="settings-form"><div class="settings-form-grid">${fields.map(([name,label,value,wide]) => `<div class="form-field ${wide ? 'field-wide' : ''}"><label for="setting-${name}">${label}</label><input id="setting-${name}" name="${name}" value="${esc(value || '')}" ${name === 'email' ? 'type="email"' : ''} maxlength="${name === 'address' ? 240 : name === 'timezone' ? 80 : 120}" placeholder="${name === 'timezone' ? 'مثال: Asia/Tehran' : ''}"></div>`).join('')}</div><div class="form-actions"><span class="form-hint">تغییرات بلافاصله در پنل اعمال می‌شود.</span><button class="button button-primary" type="submit">${icon('check', 15)} ذخیره تغییرات</button></div></form></section><aside class="panel settings-aside-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('shield-check', 16)}</span><span><h2>وضعیت سامانه</h2><p>اطلاعات نسخه و محیط سامانه</p></span></div><div class="settings-info-list"><div class="settings-info-row"><span>نسخه سامانه</span><b>${esc(state.appVersion || APP_VERSION)}</b></div><div class="settings-info-row"><span>زبان و جهت</span><b>فارسی · راست‌چین</b></div><div class="settings-info-row"><span>فونت رابط کاربری</span><b>Vazirmatn</b></div><div class="settings-info-row"><span>حساب فعلی</span><b>${esc(roleName(state.user.role))}</b></div></div><div class="system-health">${icon('check', 17)}<span><b>همه سرویس‌ها فعال هستند</b><small>آخرین بررسی: همین لحظه</small></span></div></aside><section class="panel settings-aside-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('modules', 16)}</span><span><h2>سامانه ماژولار</h2><p>بخش‌های موردنیاز مدرسه را فعال نگه دارید.</p></span></div><p class="form-hint">از بخش «مدیریت ماژول‌ها» می‌توانید قابلیت‌های مدرسه را روشن یا خاموش کنید؛ اطلاعات هر ماژول در فایل یا پایگاه داده سامانه باقی می‌ماند.</p><button class="button button-outline" type="button" data-quick-nav="modules" style="margin-top:14px">مدیریت ماژول‌ها ${icon('arrow-left', 14)}</button></section></div><section class="panel login-method-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('shield-check', 16)}</span><span><h2>روش ورود و پیامک یک‌بارمصرف</h2><p>روش ورود برای همهٔ نقش‌ها اعمال می‌شود؛ تنظیمات پیامک فقط در سمت سرور نگهداری می‌شود.</p></span></div><form id="login-settings-form"><div class="settings-form-grid"><div class="form-field"><label for="login-method-mode">روش ورود کاربران</label><select id="login-method-mode" name="loginMode"><option value="password" ${settings.loginMode === 'password' ? 'selected' : ''}>نام کاربری و گذرواژه</option><option value="phone" ${settings.loginMode === 'phone' ? 'selected' : ''}>فقط کد یک‌بارمصرف پیامکی</option><option value="both" ${settings.loginMode === 'both' ? 'selected' : ''}>هر دو روش (تب انتخاب در ورود)</option></select></div><div class="form-field"><label for="ippanel-api-key">کلید API پیامک IPPanel</label><input id="ippanel-api-key" name="smsApiKey" type="password" autocomplete="new-password" maxlength="512" placeholder="برای حفظ کلید فعلی خالی بگذارید"><small class="form-hint">کلید هرگز در پاسخ API یا مرورگر بازگردانده نمی‌شود.</small></div><div class="form-field"><label for="ippanel-from-number">شمارهٔ فرستنده (E.164)</label><input id="ippanel-from-number" name="smsFromNumber" type="tel" maxlength="40" dir="ltr" placeholder="+983000505"></div><div class="form-field"><label for="ippanel-pattern-code">شناسهٔ الگوی تأییدشده</label><input id="ippanel-pattern-code" name="smsPatternCode" maxlength="128" dir="ltr" placeholder="شناسهٔ الگو در IPPanel"></div><div class="form-field"><label for="ippanel-otp-param">نام متغیر کد در الگو</label><input id="ippanel-otp-param" name="smsOtpParam" maxlength="40" dir="ltr" placeholder="code"></div><label class="sms-clear-option field-wide"><input id="clear-sms-credentials" name="clearSmsCredentials" type="checkbox"><span>پاک‌کردن کلید و تنظیمات ذخیره‌شدهٔ پیامک</span></label></div><div id="sms-config-status" class="sms-config-status" role="status" aria-live="polite">در حال دریافت وضعیت پیامک…</div><p class="form-hint login-method-note">برای ارسال، الگوی فعال IPPanel باید دقیقاً همین متغیر را داشته باشد. شمارهٔ کاربران با رقم فارسی/عربی هم پذیرفته و به E.164 نرمال می‌شود. کلید در فایل خصوصی <code>data/config.json</code> با مجوز محدود ذخیره می‌شود؛ می‌توانید به‌جای آن از متغیرهای محیطی <code>IPPANEL_API_KEY</code>، <code>IPPANEL_FROM_NUMBER</code>، <code>IPPANEL_PATTERN_CODE</code> و <code>IPPANEL_OTP_PARAM</code> استفاده کنید.</p><div class="form-actions"><span class="form-hint">فعال‌سازی پیامک بدون تکمیل تنظیمات IPPanel پذیرفته نمی‌شود.</span><button class="button button-primary" type="submit">${icon('check', 15)} ذخیره روش ورود</button></div></form></section><section class="panel backup-management-card"><div class="settings-card-header"><span class="panel-title-icon">${icon('shield-check', 16)}</span><span><h2>پشتیبان‌گیری و بازیابی</h2><p>نسخهٔ امن خارج از پوشهٔ عمومی هاست نگهداری می‌شود.</p></span></div><div class="backup-management-grid"><div class="backup-action-block"><h3>ساخت / دریافت نسخهٔ پشتیبان</h3><p>پشتیبان شامل اطلاعات مدرسه و هش گذرواژه‌هاست؛ فایل را محرمانه نگه دارید.</p><div class="backup-controls"><button class="button button-primary" type="button" id="backup-create">${icon('plus', 14)} ساخت نسخهٔ جدید</button><select id="backup-select" aria-label="انتخاب نسخهٔ پشتیبان"><option value="">در حال دریافت فهرست…</option></select><button class="button button-outline" type="button" id="backup-download">${icon('download', 14)} دانلود</button></div></div><div class="backup-action-block backup-restore-block"><h3>بازیابی از فایل JSON</h3><p>بازیابی داده‌های فعلی را جایگزین می‌کند و نشست همهٔ کاربران را می‌بندد؛ پیش از آن نسخهٔ ایمنی ساخته می‌شود.</p><div class="backup-controls backup-restore-controls"><input id="backup-upload" type="file" accept=".json,application/json" aria-label="انتخاب فایل پشتیبان"><input id="backup-password" type="password" autocomplete="current-password" placeholder="گذرواژه فعلی مدیر" aria-label="گذرواژه فعلی مدیر"><button class="button button-danger" type="button" id="backup-restore">${icon('audit', 14)} بازیابی</button></div></div></div><small class="backup-security-note">پشتیبان‌گیری خودکار روزانه روی سرور فعال است؛ نسخه‌های ۱۴ روز اخیر نگهداری می‌شوند. برای حفاظت در برابر خرابی کامل هاست، نسخه‌ای را نیز خارج از هاست نگه دارید.</small></section>`;
   }
 
   function bindSettings() {
@@ -1162,6 +1215,47 @@
         $('#school-avatar').textContent = firstGlyph(result.settings.schoolName);
         $('#school-year-side').textContent = result.settings.academicYear;
         toast(result.message || 'تنظیمات ذخیره شد.');
+      } catch (error) { toast(error.message, 'error'); }
+      finally { button.disabled = false; }
+    });
+    const loginSettingsForm = $('#login-settings-form');
+    const applySmsSettings = (sms = {}) => {
+      if (!loginSettingsForm) return;
+      $('#ippanel-api-key').value = '';
+      $('#ippanel-api-key').placeholder = sms.managedFields?.includes('apiKey') ? 'از متغیر محیطی سرور مدیریت می‌شود' : sms.apiKeyConfigured ? 'برای حفظ کلید فعلی خالی بگذارید' : 'کلید API خصوصی IPPanel';
+      $('#ippanel-from-number').value = sms.senderNumber || '';
+      $('#ippanel-pattern-code').value = sms.patternCode || '';
+      $('#ippanel-otp-param').value = sms.otpParam || 'code';
+      const managed = new Set(sms.managedFields || []);
+      $('#ippanel-api-key').disabled = managed.has('apiKey');
+      $('#ippanel-from-number').disabled = managed.has('fromNumber');
+      $('#ippanel-pattern-code').disabled = managed.has('patternCode');
+      $('#ippanel-otp-param').disabled = managed.has('otpParam');
+      $('#clear-sms-credentials').disabled = managed.size > 0;
+      const status = $('#sms-config-status');
+      status.textContent = sms.configured ? 'وضعیت پیامک: پیکربندی کامل است.' : 'وضعیت پیامک: هنوز کامل پیکربندی نشده است.';
+      status.classList.toggle('is-ready', Boolean(sms.configured));
+      status.classList.toggle('is-incomplete', !sms.configured);
+    };
+    request('/api/settings').then((result) => {
+      if (!loginSettingsForm) return;
+      $('#login-method-mode').value = result.settings?.loginMode || 'password';
+      applySmsSettings(result.sms);
+    }).catch((error) => toast(error.message || 'دریافت تنظیمات پیامک ناموفق بود.', 'error'));
+    loginSettingsForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const payload = Object.fromEntries(new FormData(form).entries());
+      payload.clearSmsCredentials = $('#clear-sms-credentials').checked;
+      const button = form.querySelector('button[type=submit]');
+      button.disabled = true;
+      try {
+        const result = await request('/api/settings', { method: 'PATCH', body: JSON.stringify(payload) });
+        state.settings = result.settings;
+        $('#login-method-mode').value = result.settings.loginMode || 'password';
+        $('#clear-sms-credentials').checked = false;
+        applySmsSettings(result.sms);
+        toast(result.message || 'روش ورود ذخیره شد.');
       } catch (error) { toast(error.message, 'error'); }
       finally { button.disabled = false; }
     });
@@ -1662,11 +1756,6 @@
     } catch (error) { toast(error.message, 'error'); }
   }
 
-  function showHelp() {
-    const content = `<div class="modal-head"><div class="modal-head-main"><span class="modal-head-icon">${icon('help',18)}</span><span><h2 id="modal-title">راهنمای سریع مدرسه‌یار</h2><p>چطور با بخش‌های اصلی شروع کنید؟</p></span></div><button class="modal-close" data-close-modal>${icon('close',16)}</button></div><div class="modal-body help-modal-body"><div class="help-step"><span>۱</span><div><b>ساخت کلاس و تعیین معلم</b><p>ابتدا از بخش «معلمان» حساب معلم بسازید و سپس کلاس را با معلم مسئول تعریف کنید.</p></div></div><div class="help-step"><span>۲</span><div><b>تکمیل پرونده دانش‌آموز</b><p>در فرم دانش‌آموز، کلاس، شماره تماس ولی و اطلاعات اضطراری را وارد کنید؛ با ساخت حساب، دانش‌آموز می‌تواند وارد پنل خودش شود.</p></div></div><div class="help-step"><span>۳</span><div><b>ثبت حضور و ارتباط</b><p>حضور روزانه را از بخش حضور و غیاب ثبت کنید و درخواست‌های مدرسه را از طریق تیکت پیگیری کنید.</p></div></div><div class="help-callout">${icon('shield-check',16)} برای نصب روی cPanel، راهنمای کامل را در <a href="/install" target="_blank">ویزارد نصب</a> ببینید.</div></div><div class="modal-foot"><span></span><div class="modal-foot-right"><button type="button" class="button button-primary" data-close-modal>متوجه شدم</button></div></div>`;
-    openModal(content);
-  }
-
   function toast(message, type = 'success') {
     const region = $('#toast-region');
     const node = document.createElement('div');
@@ -1710,7 +1799,31 @@
     }
   }
 
+  function startOtpResendCooldown(seconds) {
+    if (state.otpResendTimer) clearInterval(state.otpResendTimer);
+    const button = $('#otp-resend');
+    let remaining = Math.max(1, Math.min(300, Number(seconds) || 60));
+    button.disabled = true;
+    const update = () => {
+      button.textContent = `ارسال دوباره (${faNumber(remaining)} ثانیه)`;
+      if (remaining <= 0) {
+        clearInterval(state.otpResendTimer);
+        state.otpResendTimer = null;
+        button.disabled = false;
+        button.textContent = 'ارسال دوبارهٔ کد';
+        return;
+      }
+      remaining -= 1;
+    };
+    update();
+    state.otpResendTimer = setInterval(update, 1000);
+  }
+
   function bindGlobalEvents() {
+    $('#login-method-tabs').addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-login-method]');
+      if (tab) setLoginMethod(tab.dataset.loginMethod);
+    });
     $('#login-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
@@ -1723,8 +1836,60 @@
         setDemoSessionToken(result.demoSessionToken || '');
         state.user = result.user; state.settings = result.settings; state.cache = {};
         await loadApp(result.user?.id || '');
-      } catch (error) { errorBox.textContent = error.message || 'ورود انجام نشد.'; }
-      finally { button.disabled = false; }
+      } catch (error) {
+        errorBox.textContent = error.message || 'ورود انجام نشد.';
+        $('#login-password').value = '';
+      } finally { button.disabled = false; }
+    });
+    $('#phone-login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = $('#phone-login-submit');
+      const errorBox = $('#otp-login-error');
+      errorBox.textContent = '';
+      button.disabled = true;
+      try {
+        if (!state.otpChallengeId) {
+          const result = await request('/api/auth/otp/request', { method: 'POST', body: JSON.stringify({ phone: $('#login-phone').value.trim() }) });
+          state.otpChallengeId = result.challengeId || '';
+          if (!state.otpChallengeId) throw new Error('پاسخ درخواست کد کامل نبود؛ دوباره تلاش کنید.');
+          $('#login-phone').readOnly = true;
+          $('#otp-code-field').hidden = false;
+          $('#otp-secondary-actions').hidden = false;
+          $('#phone-login-submit span:first-child').textContent = 'تأیید کد و ورود';
+          errorBox.textContent = result.message || 'اگر شماره به حساب فعالی متصل باشد، کد ارسال می‌شود.';
+          startOtpResendCooldown(result.resendAfter || 60);
+          $('#login-otp').focus();
+        } else {
+          const result = await request('/api/auth/otp/verify', { method: 'POST', body: JSON.stringify({ challengeId: state.otpChallengeId, otp: $('#login-otp').value.trim() }) });
+          setDemoSessionToken(result.demoSessionToken || '');
+          state.user = result.user; state.settings = result.settings; state.cache = {};
+          clearOtpChallenge();
+          await loadApp(result.user?.id || '');
+        }
+      } catch (error) {
+        errorBox.textContent = error.message || 'ورود پیامکی انجام نشد.';
+      } finally { button.disabled = false; }
+    });
+    $('#otp-resend').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      if (!state.otpChallengeId || button.disabled) return;
+      button.disabled = true;
+      $('#otp-login-error').textContent = '';
+      try {
+        const result = await request('/api/auth/otp/request', { method: 'POST', body: JSON.stringify({ phone: $('#login-phone').value.trim() }) });
+        state.otpChallengeId = result.challengeId || '';
+        $('#login-otp').value = '';
+        $('#otp-login-error').textContent = result.message || 'اگر شماره به حساب فعالی متصل باشد، کد ارسال می‌شود.';
+        startOtpResendCooldown(result.resendAfter || 60);
+      } catch (error) {
+        $('#otp-login-error').textContent = error.message || 'ارسال دوبارهٔ کد انجام نشد.';
+        button.disabled = false;
+      }
+    });
+    $('#otp-edit-phone').addEventListener('click', () => {
+      clearOtpChallenge();
+      $('#otp-login-error').textContent = '';
+      $('#login-phone').focus();
     });
     $('#demo-accounts').addEventListener('click', (event) => {
       const account = event.target.closest('[data-demo-login]'); if (account) switchAccount(account.dataset.demoLogin, account.dataset.demoPassword);
@@ -1773,7 +1938,6 @@
     $('#global-search').addEventListener('blur', (event) => { if (!event.currentTarget.value) $('.global-search').classList.remove('is-open'); });
     $('#global-search').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); runGlobalSearch(event.currentTarget.value).catch((error) => toast(error.message,'error')); event.currentTarget.blur(); } });
     $('#notification-button').addEventListener('click', showNotifications);
-    $('#topbar-help').addEventListener('click', showHelp);
     $('#page-content').addEventListener('click', (event) => {
       const quick = event.target.closest('[data-quick-nav]');
       if (quick) {

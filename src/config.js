@@ -27,13 +27,36 @@ async function loadConfig() {
   if (database.driver === 'mysql' && (!database.host || !database.database || !database.user)) {
     throw new Error('پیکربندی MySQL ناقص است؛ DB_HOST، DB_NAME و DB_USER را بررسی کنید.');
   }
-  return { ...saved, database, configPath: CONFIG_PATH, dataDir: DATA_DIR, statePath: STATE_PATH };
+  const sms = {
+    apiKey: String(saved.sms?.apiKey || ''),
+    fromNumber: String(saved.sms?.fromNumber || ''),
+    patternCode: String(saved.sms?.patternCode || ''),
+    otpParam: String(saved.sms?.otpParam || 'code')
+  };
+  const smsManagedFields = [];
+  for (const [field, environmentVariable] of Object.entries({
+    apiKey: 'IPPANEL_API_KEY',
+    fromNumber: 'IPPANEL_FROM_NUMBER',
+    patternCode: 'IPPANEL_PATTERN_CODE',
+    otpParam: 'IPPANEL_OTP_PARAM'
+  })) {
+    if (!process.env[environmentVariable]) continue;
+    sms[field] = process.env[environmentVariable].trim();
+    smsManagedFields.push(field);
+  }
+  return { ...saved, database, sms, smsManagedFields, configPath: CONFIG_PATH, dataDir: DATA_DIR, statePath: STATE_PATH };
 }
 
 async function saveConfig(config) {
   await fs.mkdir(DATA_DIR, { recursive: true });
-  const { database } = config;
-  const safeConfig = { database };
+  let saved = {};
+  try { saved = JSON.parse(await fs.readFile(CONFIG_PATH, 'utf8')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const safeConfig = {
+    database: config.database || saved.database || { driver: 'json' },
+    sms: config.sms ? { ...(saved.sms || {}), ...config.sms } : saved.sms
+  };
+  if (!safeConfig.sms) delete safeConfig.sms;
   await fs.writeFile(CONFIG_PATH, `${JSON.stringify(safeConfig, null, 2)}\n`, { mode: 0o600 });
   try { await fs.chmod(CONFIG_PATH, 0o600); } catch { /* Some cPanel file systems ignore chmod. */ }
 }

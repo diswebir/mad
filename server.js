@@ -61,14 +61,27 @@ async function ensureStartupState(store) {
   return state;
 }
 
-async function serveStatic(req, res, url) {
+async function serveStatic(req, res, url, ctx) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
-  let pathname = url.pathname;
+  let pathname;
+  try { pathname = decodeURIComponent(url.pathname); } catch { return false; }
+  if (['/install', '/install/', '/install.html', '/install.css', '/install.js'].includes(pathname)) {
+    let installed = false;
+    try { installed = Boolean((await ctx.store.read()).settings?.installed); }
+    catch { installed = true; }
+    if (installed || ctx.demoMode) {
+      res.writeHead(404, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff'
+      });
+      res.end('صفحه موردنظر پیدا نشد.');
+      return true;
+    }
+    if (pathname === '/install' || pathname === '/install/') pathname = '/install.html';
+  }
   if (pathname === '/') pathname = '/index.html';
-  if (pathname === '/install' || pathname === '/install/') pathname = '/install.html';
-  let decoded;
-  try { decoded = decodeURIComponent(pathname); } catch { return false; }
-  const target = path.resolve(PUBLIC_DIR, `.${decoded}`);
+  const target = path.resolve(PUBLIC_DIR, `.${pathname}`);
   if (!target.startsWith(`${PUBLIC_DIR}${path.sep}`)) return false;
   let stats;
   try { stats = await fs.stat(target); } catch { return false; }
@@ -104,8 +117,13 @@ async function start() {
     store,
     appVersion: APP_VERSION,
     demoMode: activeDemoMode,
+    trustProxy: process.env.TRUST_PROXY === '1',
     sessions: new Map(),
     loginAttempts: new Map(),
+    otpChallenges: new Map(),
+    otpRateLimits: new Map(),
+    otpSecret: require('node:crypto').randomBytes(32),
+    config,
     saveConfig
   };
   ctx.backups = new BackupManager({ directory: path.join(config.dataDir, 'backups'), getStore: () => ctx.store, version: APP_VERSION, keep: 14 });
@@ -116,7 +134,7 @@ async function start() {
     try {
       const handled = await handleApi(req, res, url, ctx);
       if (handled) return;
-      if (await serveStatic(req, res, url)) return;
+      if (await serveStatic(req, res, url, ctx)) return;
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' });
       res.end('صفحه موردنظر پیدا نشد.');
     } catch (error) {
@@ -147,7 +165,11 @@ async function start() {
   process.on('SIGINT', cleanup);
 }
 
-start().catch((error) => {
-  console.error('راه‌اندازی سامانه انجام نشد:', error.message || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  start().catch((error) => {
+    console.error('راه‌اندازی سامانه انجام نشد:', error.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { start, serveStatic, normalizeState };

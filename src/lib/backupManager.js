@@ -77,7 +77,7 @@ function validateBackup(envelope) {
 }
 
 class BackupManager {
-  constructor({ directory, getStore, version = '1.1.0', keep = 14 }) {
+  constructor({ directory, getStore, version = '1.2.0', keep = 14 }) {
     this.directory = path.resolve(directory);
     this.getStore = getStore;
     this.version = version;

@@ -1,13 +1,13 @@
 {
   "name": "madreseh-yar",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "A modular Persian RTL school management system for Node.js and cPanel",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "DEMO_MODE=1 node server.js",
-    "check": "node --check server.js && node --check src/config.js && node --check src/controllers/apiController.js && node --check src/data/modules.js && node --check src/data/seed.js && node --check src/lib/security.js && node --check src/lib/dates.js && node --check src/lib/backupManager.js && node --check src/models/store.js && node --check src/models/mysqlStore.js && node --check public/icons.js && node --check public/app.js && node --check public/install.js && node --check test/access.test.js && node --check test/workflows.test.js",
+    "check": "node --check server.js && node --check src/config.js && node --check src/controllers/apiController.js && node --check src/data/modules.js && node --check src/data/seed.js && node --check src/lib/security.js && node --check src/lib/dates.js && node --check src/lib/backupManager.js && node --check src/models/store.js && node --check src/models/mysqlStore.js && node --check public/icons.js && node --check public/app.js && node --check public/install.js && node --check test/access.test.js && node --check test/workflows.test.js && node --check test/auth.test.js && node --check test/config.test.js && node --check test/install.test.js",
     "test": "node --test"
   },
   "engines": {

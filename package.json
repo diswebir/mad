@@ -1,0 +1,19 @@
+{
+  "name": "madreseh-yar",
+  "version": "1.3.0",
+  "private": true,
+  "description": "A modular Persian RTL school management system for Node.js and cPanel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "DEMO_MODE=1 node server.js",
+    "check": "node --check server.js && node --check src/config.js && node --check src/controllers/apiController.js && node --check src/data/modules.js && node --check src/data/seed.js && node --check src/lib/security.js && node --check src/lib/dates.js && node --check src/lib/timetable.js && node --check src/lib/backupManager.js && node --check src/models/store.js && node --check src/models/mysqlStore.js && node --check public/icons.js && node --check public/app.js && node --check public/install.js && node --check test/access.test.js && node --check test/workflows.test.js && node --check test/auth.test.js && node --check test/config.test.js && node --check test/smoke.test.js && node --check test/install.test.js && node --check test/frontend-regressions.test.js && node --check test/timetable.test.js && node --check test/timetable-api.test.js && node --check test/attendance-bulk.test.js && node --check test/data-integrity.test.js && node --check test/health.test.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "mysql2": "^3.14.0"
+  }
+}

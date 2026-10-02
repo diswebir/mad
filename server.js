@@ -1,0 +1,207 @@
+'use strict';
+
+const http = require('node:http');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const { loadConfig, saveConfig, PUBLIC_DIR } = require('./src/config');
+const { createInitialState } = require('./src/data/seed');
+const { modules } = require('./src/data/modules');
+const { openJsonStore } = require('./src/models/store');
+const { openMysqlStore } = require('./src/models/mysqlStore');
+const { handleApi } = require('./src/controllers/apiController');
+const { hashPasswordSync } = require('./src/lib/security');
+const { BackupManager } = require('./src/lib/backupManager');
+const { canonicalWeekday, parseClock, getSchoolSchedule } = require('./src/lib/timetable');
+const APP_VERSION = require('./package.json').version;
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.webp': 'image/webp'
+};
+const demoMode = process.env.DEMO_MODE === '1';
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'self' https://*.e2b.app https://arena.ai https://*.arena.ai; img-src 'self' data: blob:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+};
+
+function normalizeState(state) {
+  state.settings ||= {};
+  state.modules ||= modules.map((item) => ({ ...item, enabled: true }));
+  state.users ||= [];
+  state.roles ||= [];
+  state.auditLogs ||= [];
+  state.records ||= {};
+  for (const item of modules) {
+    if (!state.modules.some((feature) => feature.id === item.id)) state.modules.push({ ...item, enabled: true });
+    else {
+      const existing = state.modules.find((feature) => feature.id === item.id);
+      Object.assign(existing, { title: item.title, description: item.description, icon: item.icon, group: item.group, roles: item.roles, locked: Boolean(item.locked) });
+    }
+  }
+  const schedule = getSchoolSchedule(state.settings);
+  state.settings.schoolDays = schedule.schoolDays;
+  state.settings.schoolPeriods = schedule.schoolPeriods;
+  const normalizeSubjectName = (value) => String(value || '').normalize('NFKC').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[\u200c\u200f]/g, '').replace(/\s+/g, '').toLocaleLowerCase('fa');
+  for (const row of state.records.timetable || []) {
+    row.day = canonicalWeekday(row.day) || row.day;
+    row.academicYear ||= state.settings.academicYear || '';
+    let subject = (state.records.subjects || []).find((item) => item.id === row.subjectId);
+    if (!subject && row.subject) {
+      const matches = (state.records.subjects || []).filter((item) => normalizeSubjectName(item.name) === normalizeSubjectName(row.subject));
+      const classroom = (state.records.classes || []).find((item) => item.id === row.classId);
+      subject = matches.find((item) => item.grade && item.grade === classroom?.grade) || matches[0];
+      if (subject) row.subjectId = subject.id;
+    }
+    if (subject) row.subject = subject.name;
+    const start = parseClock(row.startTime);
+    const end = parseClock(row.endTime);
+    const period = schedule.schoolPeriods.find((item) => item.id === row.periodId) ||
+      (start && end ? schedule.schoolPeriods.find((item) => item.startTime === start.value && item.endTime === end.value) : null);
+    if (period) {
+      row.periodId = period.id;
+      row.periodName = period.name;
+      row.startTime = period.startTime;
+      row.endTime = period.endTime;
+    }
+  }
+  return state;
+}
+
+function demoUsers() {
+  return [
+    { id: 'usr-demo-admin', username: 'admin', name: 'مهسا رادمنش', role: 'admin', status: 'فعال', phone: '۰۹۱۲۱۱۱۲۲۳۳', passwordHash: hashPasswordSync('admin123'), createdAt: '2026-09-01T08:00:00.000Z', isDemo: true },
+    { id: 'usr-demo-teacher', username: 'ahmadi', name: 'نرگس احمدی', role: 'teacher', teacherId: 'tch-01', status: 'فعال', phone: '۰۹۱۲۱۲۳۴۵۶۷', passwordHash: hashPasswordSync('teacher123'), createdAt: '2026-09-01T08:00:00.000Z', isDemo: true },
+    { id: 'usr-demo-student', username: 'sara', name: 'سارا محمدی', role: 'student', studentId: 'std-1001', status: 'فعال', phone: '۰۹۱۲۵۵۵۱۲۳۴', passwordHash: hashPasswordSync('student123'), createdAt: '2026-09-01T08:00:00.000Z', isDemo: true },
+    { id: 'usr-demo-parent', username: 'maryam', name: 'مریم محمدی', role: 'parent', studentId: 'std-1001', parentId: 'par-01', status: 'فعال', phone: '۰۹۱۲۵۵۵۰۰۱۱', passwordHash: hashPasswordSync('parent123'), createdAt: '2026-09-01T08:00:00.000Z', isDemo: true }
+  ];
+}
+
+async function ensureStartupState(store) {
+  let state = normalizeState(await store.read());
+  if (JSON.stringify(state) !== JSON.stringify(await store.read())) {
+    await store.transact((draft) => Object.assign(draft, state));
+  }
+  if (demoMode && !state.settings.installed) {
+    const missing = demoUsers().filter((account) => !state.users.some((user) => user.username === account.username));
+    if (missing.length) {
+      await store.transact((draft) => { draft.users.push(...missing); });
+      state = await store.read();
+    }
+  }
+  return state;
+}
+
+async function serveStatic(req, res, url, ctx) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  let pathname;
+  try { pathname = decodeURIComponent(url.pathname); } catch { return false; }
+  if (['/install', '/install/', '/install.html', '/install.css', '/install.js'].includes(pathname)) {
+    let installed = false;
+    try { installed = Boolean((await ctx.store.read()).settings?.installed); }
+    catch { installed = true; }
+    if (installed || ctx.demoMode) {
+      res.writeHead(404, {
+        ...SECURITY_HEADERS,
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      res.end('صفحه موردنظر پیدا نشد.');
+      return true;
+    }
+    if (pathname === '/install' || pathname === '/install/') pathname = '/install.html';
+  }
+  if (pathname === '/') pathname = '/index.html';
+  const target = path.resolve(PUBLIC_DIR, `.${pathname}`);
+  if (!target.startsWith(`${PUBLIC_DIR}${path.sep}`)) return false;
+  let stats;
+  try { stats = await fs.stat(target); } catch { return false; }
+  if (!stats.isFile()) return false;
+  const contentType = MIME_TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream';
+  res.writeHead(200, {
+    ...SECURITY_HEADERS,
+    'Content-Type': contentType,
+    'Content-Length': stats.size,
+    'Cache-Control': ['.html', '.css', '.js'].includes(path.extname(target).toLowerCase()) || process.env.NODE_ENV !== 'production' ? 'no-cache' : 'public, max-age=300'
+  });
+  if (req.method === 'HEAD') return res.end();
+  const stream = require('node:fs').createReadStream(target);
+  stream.on('error', () => { if (!res.headersSent) res.writeHead(500); res.end(); });
+  stream.pipe(res);
+  return true;
+}
+
+async function start() {
+  const config = await loadConfig();
+  let initialState = normalizeState(await createInitialState(demoMode));
+  let store;
+  if (config.database.driver === 'mysql') {
+    store = await openMysqlStore(config.database, initialState);
+  } else {
+    store = await openJsonStore(config.statePath, initialState);
+  }
+  const startupState = await ensureStartupState(store);
+  const activeDemoMode = demoMode && !startupState.settings.installed;
+
+  const ctx = {
+    store,
+    appVersion: APP_VERSION,
+    demoMode: activeDemoMode,
+    trustProxy: process.env.TRUST_PROXY === '1',
+    sessions: new Map(),
+    loginAttempts: new Map(),
+    otpChallenges: new Map(),
+    otpRateLimits: new Map(),
+    otpSecret: require('node:crypto').randomBytes(32),
+    config,
+    saveConfig
+  };
+  ctx.backups = new BackupManager({ directory: path.join(config.dataDir, 'backups'), getStore: () => ctx.store, version: APP_VERSION, keep: 14 });
+  await ctx.backups.create('startup').catch((error) => console.error('[backup] تهیهٔ نسخهٔ اولیه ناموفق بود:', error.message));
+  ctx.backups.start();
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    try {
+      const handled = await handleApi(req, res, url, ctx);
+      if (handled) return;
+      if (await serveStatic(req, res, url, ctx)) return;
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' });
+      res.end('صفحه موردنظر پیدا نشد.');
+    } catch (error) {
+      console.error('[server]', error);
+      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'خطای داخلی سامانه رخ داد.' }));
+    }
+  });
+  server.requestTimeout = 30_000;
+  server.headersTimeout = 35_000;
+  server.keepAliveTimeout = 5_000;
+
+  const port = Number(process.env.PORT || 3000);
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`مدرسه‌یار روی 0.0.0.0:${port} اجرا شد (${ctx.store.kind}${ctx.demoMode ? ' · demo' : ''})`);
+    if (!ctx.demoMode && !startupState.settings.installed) console.log('برای پیکربندی اولیه، مسیر /install را باز کنید.');
+  });
+
+  const cleanup = () => {
+    server.close(async () => {
+      ctx.backups.stop();
+      await ctx.store.close().catch(() => undefined);
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(0), 5000).unref();
+  };
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
+}
+
+if (require.main === module) {
+  start().catch((error) => {
+    console.error('راه‌اندازی سامانه انجام نشد:', error.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { start, serveStatic, normalizeState };

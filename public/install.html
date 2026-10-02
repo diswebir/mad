@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101b35">
+  <title>ویزارد نصب | مدرسه‌یار</title>
+  <link rel="stylesheet" href="/styles.css?v=20261002-9">
+  <link rel="stylesheet" href="/install.css?v=20261002-9">
+  <script defer src="/icons.js?v=20261002-9"></script>
+  <script defer src="/install.js?v=20261002-9"></script>
+</head>
+<body class="install-body">
+  <div class="install-bg-grid"></div>
+  <header class="install-header"><a class="install-brand" href="/"><span class="brand-mark"><span class="brand-cap"></span><span class="brand-book"></span></span><span><b>مدرسه‌یار</b><small>راه‌اندازی سامانه</small></span></a><a class="install-back" href="/">بازگشت به سامانه <span data-icon="arrow-left"></span></a></header>
+  <main class="installer-wrap">
+    <section class="installer-heading"><span class="installer-kicker"><i></i> نصب آسان · بدون پیچیدگی</span><h1>مدرسه‌یار را آماده کنید</h1><p>چند مرحله کوتاه تا پنل اختصاصی مدرسه شما. اطلاعات این فرم فقط روی هاست خودتان ذخیره می‌شود.</p></section>
+    <section class="installer-card" id="installer-card">
+      <div class="installer-progress">
+        <div class="progress-step is-active" data-progress-step="1"><span>۱</span><b>اطلاعات مدرسه</b></div><i></i>
+        <div class="progress-step" data-progress-step="2"><span>۲</span><b>پایگاه داده</b></div><i></i>
+        <div class="progress-step" data-progress-step="3"><span>۳</span><b>حساب مدیر</b></div>
+      </div>
+      <form id="install-form" novalidate>
+        <section class="installer-step is-visible" data-step="1">
+          <div class="step-title"><span class="step-icon" data-icon="school"></span><div><h2>اطلاعات مدرسه</h2><p>این مشخصات در سربرگ و بخش‌های مختلف پنل نمایش داده می‌شود.</p></div></div>
+          <div class="form-grid">
+            <label class="install-field field-wide"><span>نام مدرسه <b>*</b></span><input name="schoolName" required maxlength="120" placeholder="مثلاً دبیرستان مهرآیین"></label>
+            <label class="install-field"><span>سال تحصیلی</span><input name="academicYear" maxlength="30" value="۱۴۰۵–۱۴۰۶" placeholder="۱۴۰۵–۱۴۰۶"></label>
+            <label class="install-field"><span>شماره تماس</span><input name="phone" type="tel" maxlength="32" placeholder="۰۲۱-۱۲۳۴۵۶۷۸"></label>
+            <label class="install-field"><span>ایمیل مدرسه</span><input name="email" type="email" maxlength="120" placeholder="info@school.ir"></label>
+            <label class="install-field field-wide"><span>نشانی</span><input name="address" maxlength="240" placeholder="استان، شهر، خیابان و نشانی مدرسه"></label>
+          </div>
+        </section>
+
+        <section class="installer-step" data-step="2">
+          <div class="step-title"><span class="step-icon" data-icon="database"></span><div><h2>انتخاب پایگاه داده</h2><p>برای نصب سریع از ذخیره‌سازی فایل استفاده کنید یا MySQL هاست را متصل کنید.</p></div></div>
+          <div class="database-options">
+            <label class="database-option is-selected" data-database-option="json"><input type="radio" name="databaseDriver" value="json" checked><span class="database-radio"></span><span class="database-option-icon icon-lilac" data-icon="file-database"></span><span class="database-copy"><b>فایل محلی امن</b><small>راه‌اندازی سریع و مناسب شروع کار؛ نیازی به ساخت دیتابیس ندارد.</small></span><span class="recommended">پیشنهادی</span></label>
+            <label class="database-option" data-database-option="mysql"><input type="radio" name="databaseDriver" value="mysql"><span class="database-radio"></span><span class="database-option-icon icon-amber" data-icon="database"></span><span class="database-copy"><b>MySQL هاست</b><small>اتصال به دیتابیس MySQL یا MariaDB ساخته‌شده در cPanel.</small></span></label>
+          </div>
+          <div class="mysql-fields" id="mysql-fields" hidden>
+            <div class="form-grid">
+              <label class="install-field"><span>میزبان (Host) <b>*</b></span><input name="dbHost" placeholder="localhost" autocomplete="off"></label>
+              <label class="install-field"><span>پورت</span><input name="dbPort" type="number" value="3306" min="1" max="65535"></label>
+              <label class="install-field"><span>نام پایگاه داده <b>*</b></span><input name="dbName" placeholder="cpanel_schooldb" autocomplete="off"></label>
+              <label class="install-field"><span>نام کاربری دیتابیس <b>*</b></span><input name="dbUser" placeholder="cpanel_schooluser" autocomplete="off"></label>
+              <label class="install-field field-wide"><span>گذرواژه دیتابیس</span><input name="dbPassword" type="password" autocomplete="new-password" placeholder="گذرواژه کاربر MySQL"></label>
+            </div>
+            <div class="db-test-row"><button class="button button-outline button-small" type="button" id="test-db-button"><span data-icon="plug"></span> بررسی اتصال</button><span id="db-test-result" aria-live="polite"></span></div>
+            <p class="install-note"><span data-icon="shield"></span> نام دیتابیس و کاربر را ابتدا در بخش MySQL Databases هاست cPanel بسازید و دسترسی کامل بدهید.</p>
+          </div>
+          <label class="preserve-demo-option"><input name="preserveDemo" type="checkbox" checked><span class="custom-checkbox" data-icon="check"></span><span><b>نمونه‌داده‌های نمایشی حفظ شوند</b><small>برای آشنایی با سامانه؛ بعداً می‌توانید آن‌ها را از پنل حذف کنید.</small></span></label>
+        </section>
+
+        <section class="installer-step" data-step="3">
+          <div class="step-title"><span class="step-icon" data-icon="user-shield"></span><div><h2>حساب مدیر مدرسه</h2><p>با این حساب به همه بخش‌ها دسترسی خواهید داشت. گذرواژه قوی انتخاب کنید.</p></div></div>
+          <div class="form-grid">
+            <label class="install-field field-wide"><span>نام مدیر <b>*</b></span><input name="adminName" required maxlength="100" placeholder="نام و نام خانوادگی مدیر"></label>
+            <label class="install-field"><span>شماره موبایل مدیر <b>*</b></span><input name="adminPhone" type="tel" required maxlength="40" autocomplete="tel" placeholder="۰۹۱۲۱۲۳۴۵۶۷"><small>شماره با رقم فارسی/عربی یا قالب بین‌المللی پذیرفته می‌شود و برای ورود پیامکی مدیر ذخیره خواهد شد.</small></label>
+            <label class="install-field"><span>نام کاربری <b>*</b></span><input name="username" required minlength="3" maxlength="40" autocomplete="username" placeholder="مثلاً schooladmin" dir="ltr"></label>
+            <label class="install-field"><span>گذرواژه <b>*</b></span><div class="password-input"><input name="password" type="password" required minlength="10" autocomplete="new-password" placeholder="حداقل ۱۰ نویسه"><button type="button" data-install-toggle aria-label="نمایش گذرواژه" data-icon="eye"></button></div><small class="password-hint">ترکیبی از حروف، عدد و نشانه انتخاب کنید.</small></label>
+          </div>
+          <div class="installer-security"><span class="security-shield" data-icon="shield-check"></span><p><b>اطلاعات شما امن می‌ماند</b><small>گذرواژه با الگوریتم امن هش می‌شود؛ هیچ گذرواژه‌ای به‌صورت متن ساده ذخیره نمی‌شود.</small></p></div>
+        </section>
+
+        <div class="install-error" id="install-error" role="alert"></div>
+        <div class="installer-actions"><button class="button button-outline" type="button" id="back-step" hidden><span data-icon="arrow-right"></span> مرحله قبل</button><span class="action-spacer"></span><button class="button button-primary" type="button" id="next-step">ادامه <span data-icon="arrow-left"></span></button><button class="button button-primary" type="submit" id="finish-install" hidden><span data-icon="sparkles"></span> نصب و راه‌اندازی</button></div>
+      </form>
+    </section>
+    <section class="installer-success" id="installer-success" hidden><span class="success-mark" data-icon="check"></span><span class="installer-kicker"><i></i> نصب کامل شد</span><h2>مدرسه‌یار آماده استفاده است</h2><p>حساب مدیر ساخته شد. برای شروع، با نام کاربری و گذرواژه‌ای که انتخاب کردید وارد شوید.</p><a class="button button-primary" href="/">ورود به پنل مدرسه <span data-icon="arrow-left"></span></a><small>برای امنیت بیشتر، صفحه نصب پس از راه‌اندازی قفل می‌شود.</small></section>
+    <footer class="installer-footer"><span>مدرسه‌یار · نسخه ۱.۳.۰</span><span><i></i> نصب روی هاست شما</span></footer>
+  </main>
+</body>
+</html>

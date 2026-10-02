@@ -26,6 +26,8 @@ const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'self' https://*.e2b.app https://arena.ai https://*.arena.ai; img-src 'self' data: blob:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
 };
+// Only the exact inline script in the standalone presentation is allowed; no page-wide unsafe-inline exception.
+const PRESENTATION_SCRIPT_HASH = 'sha256-gJsjxIkW3a13OyhL2HWF4qEGYTsLX4SQd5yjbRZKiFI=';
 
 function normalizeState(state) {
   state.settings ||= {};
@@ -120,8 +122,11 @@ async function serveStatic(req, res, url, ctx) {
   try { stats = await fs.stat(target); } catch { return false; }
   if (!stats.isFile()) return false;
   const contentType = MIME_TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream';
+  const responseSecurityHeaders = pathname === '/presentation.html'
+    ? { ...SECURITY_HEADERS, 'Content-Security-Policy': SECURITY_HEADERS['Content-Security-Policy'].replace("script-src 'self'", `script-src 'self' '${PRESENTATION_SCRIPT_HASH}'`) }
+    : SECURITY_HEADERS;
   res.writeHead(200, {
-    ...SECURITY_HEADERS,
+    ...responseSecurityHeaders,
     'Content-Type': contentType,
     'Content-Length': stats.size,
     'Cache-Control': ['.html', '.css', '.js'].includes(path.extname(target).toLowerCase()) || process.env.NODE_ENV !== 'production' ? 'no-cache' : 'public, max-age=300'

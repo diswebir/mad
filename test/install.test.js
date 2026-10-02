@@ -2,6 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const http = require('node:http');
 const { serveStatic } = require('../server');
 
@@ -49,6 +50,33 @@ test('ویزارد نصب فقط پیش از نصب قابل دریافت است
   const demo = await makeStaticServer({ demoMode: true });
   try { assert.equal((await demo.get('/install')).status, 404); }
   finally { await demo.close(); }
+});
+
+test('فایل معرفی HTML مستقل است و CSP اجرای اسکریپت داخلی همان فایل را مجاز می‌کند', async () => {
+  const server = await makeStaticServer({ installed: true });
+  try {
+    const response = await server.get('/presentation.html');
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(html, /@font-face/);
+    assert.match(html, /data:font\/woff2;base64,/);
+    assert.doesNotMatch(html, /__FONT_/);
+    assert.match(html, /<style>[\s\S]*<\/style>/);
+    assert.equal((html.match(/<script\b/g) || []).length, 1);
+    assert.doesNotMatch(html, /<script\b[^>]*\bsrc=/i);
+    assert.doesNotMatch(html, /<link\b[^>]*\bhref=/i);
+    assert.match(html, /role=\"tablist\"/);
+    assert.equal((html.match(/role=\"tab\"/g) || []).length, 7);
+    assert.equal((html.match(/\{id:'[^']+',title:/g) || []).length, 25);
+    const script = html.match(/<script>([\s\S]*?)<\/script>/);
+    assert.ok(script, 'the interactive script is embedded in the HTML');
+    const scriptHash = `sha256-${crypto.createHash('sha256').update(script[1]).digest('base64')}`;
+    const csp = response.headers.get('content-security-policy');
+    const scriptPolicy = csp.split(';').find((directive) => directive.trim().startsWith('script-src'));
+    assert.ok(scriptPolicy.includes(`'${scriptHash}'`), 'only the exact embedded script is allowed by CSP');
+    assert.doesNotMatch(scriptPolicy, /unsafe-inline/);
+    assert.doesNotMatch(html, /(?:src|href)=[\"']https?:\/\//);
+  } finally { await server.close(); }
 });
 
 test('صفحه ورود و پنل لینک راهنما یا نصب ندارند', async () => {

@@ -8,6 +8,8 @@
 
 ## راهنماهای نصب روی cPanel
 
+راهنماها با رابط گرافیکی cPanel و بدون نیاز به SSH نوشته شده‌اند و بخش عیب‌یابی 503، File Manager، نصب وابستگی‌ها از دکمهٔ Run NPM Install و مشاهدهٔ لاگ را پوشش می‌دهند.
+
 - [نصب نسخهٔ عملیاتی روی cPanel](doc/cpanel-install-fa.md)
 - [نصب نسخهٔ نمایشی روی cPanel](doc/cpanel-demo-install-fa.md)
 
